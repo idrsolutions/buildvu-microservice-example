@@ -32,10 +32,9 @@ This will generate the buildvu.war file inside the /target directory.
 
 ### Deployment: ###
 
-Refer back to our application server tutorials for instructions on deployment:
-[GlassFish](https://support.idrsolutions.com/hc/en-us/articles/360001058611) / (More coming soon...)
+See our [application server tutorials](https://support.idrsolutions.com/hc/en-us/sections/360000444652-Deploy-BuildVu-to-an-app-server) for instructions on deployment.
 
-Support for cloud platforms coming soon... 
+Tutorials for cloud platforms coming soon... 
 
 -----
 
@@ -45,8 +44,7 @@ You can interact with the BuildVu Microservice Example using the REST API.
 
 A complete list of raw requests that can be used can be found [here](/API.md).
 
-For specific languages, see our tutorials:
-[NodeJS](https://support.idrsolutions.com/hc/en-us/articles/360001084471) / (More coming soon...)
+For specific languages, see our tutorials on how to [run BuildVu from other languages](https://support.idrsolutions.com/hc/en-us/sections/360000451031-Run-BuildVu-from-other-languages).
 
 -----
 
