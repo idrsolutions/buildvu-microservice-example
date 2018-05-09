@@ -19,6 +19,6 @@
 -->
 <Context>
     <Resources>
-        <PreResources base="../docroot/output" className="org.apache.catalina.webresources.DirResourceSet" webAppMount="/output" />
+        <PreResources base="${catalina.base}/docroot/output" className="org.apache.catalina.webresources.DirResourceSet" webAppMount="/output" />
     </Resources>
 </Context>
