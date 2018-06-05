@@ -20,8 +20,6 @@
             <groupId>com.idrsolutions</groupId>
             <artifactId>base-microservice-example</artifactId>
             <version>1.0.1-alpha</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/base-microservice-example-1.0.1-alpha.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>buildvu</groupId>
