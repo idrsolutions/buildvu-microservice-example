@@ -15,6 +15,12 @@ To start a new conversion, send a POST request containing the file to convert. T
 
 **Example request:**
 
+```
+POST https://[URL]/buildvu
+```
+
+**POST request contents:**
+
 ```POST https://[URL]/buildvu
 POST / HTTP/1.1
 Content-Type: multipart/form-data; boundary=foo_boundary
@@ -87,11 +93,7 @@ ___
 
 ### Download
 
-You can view the results of the conversion at:
-
-```/output/[uuid]/[filename]/index.html```
-
-Or, to get the converted file as a .zip archive, send a GET request:
+The converted output is available as a .zip archive at:
 
 **URL:** ```/output/[uuid]/[filename].zip```
 
@@ -105,11 +107,7 @@ ___
 
 ### View
 
-You can view the results of the conversion at:
-
-```/output/[uuid]/[filename]/index.html```
-
-Or, to get the converted file as a .zip archive, send a GET request:
+Results of the conversion are viewable at:
 
 **URL:** ```/output/[uuid]/[filename]/index.html```
 
