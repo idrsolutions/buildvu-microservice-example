@@ -32,10 +32,13 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 @WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
+
+    private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
     protected void convert(final Individual individual, final Map<String, String[]> parameterMap, final String fileName,
                            final String inputDirectory, final String outputDirectory,
@@ -98,6 +101,7 @@ public class BuildVuServlet extends BaseServlet {
 
         } catch (final Exception ex) {
             ex.printStackTrace();
+            LOG.severe(ex.getMessage());
             individual.state = "error";
         }
     }
@@ -135,6 +139,7 @@ public class BuildVuServlet extends BaseServlet {
             }
         } catch (final IOException | InterruptedException e) {
             e.printStackTrace(); // soffice location may need to be added to the path
+            LOG.severe(e.getMessage());
             return 2;
         }
         return 0;
