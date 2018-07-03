@@ -1,0 +1,9 @@
+# Automatically detect & normalise text files that aren't already specified below
+* text=auto
+
+# Normalise line endings on checkin (set "text" attribute)
+*.java      text
+*.xml       text
+*.jsp       text
+*.txt       text
+*.md        text

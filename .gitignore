@@ -1,3 +1,5 @@
 *.iml
 .idea/
 lib/*.jar
+*.war
+target/
