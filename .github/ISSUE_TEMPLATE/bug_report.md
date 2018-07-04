@@ -4,7 +4,7 @@ about: Create a report to help us improve
 
 ---
 
-Please confirm that you are able to reliably reproduce the issue using the latest version of the BuildVu Microservice Example. Issues with the BuildVu library itself (such as conversion output / quality) should be reported to IDRsolutions through their [helpdesk](https://support.idrsolutions.com/hc/en-us/requests/new).
+Please confirm that you are able to reliably reproduce the issue using the latest version of the BuildVu Microservice Example. Issues with the BuildVu library itself (such as conversion output / quality) should be reported to IDRsolutions through our [helpdesk](https://support.idrsolutions.com/hc/en-us/requests/new).
 
 **Describe the bug**
 A clear and concise description of what the bug is.
