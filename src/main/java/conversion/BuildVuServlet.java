@@ -34,18 +34,18 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
-@WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
-@MultipartConfig
-public class BuildVuServlet extends BaseServlet {
+@WebServlet(name = "buildvu", urlPatterns = {"/buildvu"}) 
+@MultipartConfig 
+public class BuildVuServlet extends BaseServlet { 
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
-
-    protected void convert(final Individual individual, final Map<String, String[]> parameterMap, final String fileName,
+    
+    void convert(final Individual individual, final Map<String, String[]> parameterMap, final String fileName, 
                            final String inputDirectory, final String outputDirectory,
-                           final String fileNameWithoutExt, final String ext) {
-
-        final String[] settings = parameterMap.get("settings");
-        final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null;
+                           final String fileNameWithoutExt, final String ext, final String contextURL) { 
+                
+        final String[] settings = parameterMap.get("settings"); 
+        final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null; 
 
         final String userPdfFilePath;
 
@@ -89,13 +89,13 @@ public class BuildVuServlet extends BaseServlet {
             final PDFtoHTML5Converter html = new PDFtoHTML5Converter(inFile, outDir, options, new IDRViewerOptions());
             html.convert();
 
-
+            
             ZipHelper.zipFolder(outputDirectory + "/" + fileNameWithoutExt, outputDirectory + "/" + fileNameWithoutExt + ".zip");
 
             final String outputDir = individual.uuid + "/" + fileNameWithoutExt;
-
-            individual.setValue("previewPath", "output/" + outputDir + "/index.html");
-            individual.setValue("downloadPath", "output/" + outputDir + ".zip");
+            
+            individual.setValue("previewPath", contextURL + "/output/" + outputDir + "/index.html");
+            individual.setValue("downloadPath", contextURL + "/output/" + outputDir + ".zip");
 
             individual.state = "processed";
 
