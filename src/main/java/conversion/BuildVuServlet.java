@@ -93,8 +93,8 @@ public class BuildVuServlet extends BaseServlet {
 
             final String outputDir = individual.uuid + "/" + fileNameWithoutExt;
 
-            individual.setValue("previewPath", contextURL + "/output/" + outputDir + "/index.html");
-            individual.setValue("downloadPath", contextURL + "/output/" + outputDir + ".zip");
+            individual.setValue("previewUrl", contextURL + "/output/" + outputDir + "/index.html");
+            individual.setValue("downloadUrl", contextURL + "/output/" + outputDir + ".zip");
 
             individual.state = "processed";
 
