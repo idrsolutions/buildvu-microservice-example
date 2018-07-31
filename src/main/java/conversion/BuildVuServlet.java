@@ -40,9 +40,9 @@ public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
-    protected void convert(final Individual individual, final Map<String, String[]> parameterMap, final String fileName,
-                           final String inputDirectory, final String outputDirectory,
-                           final String fileNameWithoutExt, final String ext) {
+    void convert(final Individual individual, final Map<String, String[]> parameterMap, final String fileName,
+            final String inputDirectory, final String outputDirectory,
+            final String fileNameWithoutExt, final String ext, final String contextURL) {
 
         final String[] settings = parameterMap.get("settings");
         final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null;
@@ -89,13 +89,12 @@ public class BuildVuServlet extends BaseServlet {
             final PDFtoHTML5Converter html = new PDFtoHTML5Converter(inFile, outDir, options, new IDRViewerOptions());
             html.convert();
 
-
             ZipHelper.zipFolder(outputDirectory + "/" + fileNameWithoutExt, outputDirectory + "/" + fileNameWithoutExt + ".zip");
 
             final String outputDir = individual.uuid + "/" + fileNameWithoutExt;
 
-            individual.setValue("previewPath", "output/" + outputDir + "/index.html");
-            individual.setValue("downloadPath", "output/" + outputDir + ".zip");
+            individual.setValue("previewUrl", contextURL + "/output/" + outputDir + "/index.html");
+            individual.setValue("downloadUrl", contextURL + "/output/" + outputDir + ".zip");
 
             individual.state = "processed";
 
@@ -122,9 +121,11 @@ public class BuildVuServlet extends BaseServlet {
 
     /**
      * Converts an office file to PDF
+     *
      * @param fileName Name of the office file to convert
      * @param directory Directory where the office file exists
-     * @return 0 if success, 1 if libreoffice timed out, 2 if process error occurs
+     * @return 0 if success, 1 if libreoffice timed out, 2 if process error
+     * occurs
      */
     private static int convertToPDF(final String fileName, final String directory) {
         final ProcessBuilder pb = new ProcessBuilder("soffice", "--headless", "--convert-to", "pdf", fileName);
