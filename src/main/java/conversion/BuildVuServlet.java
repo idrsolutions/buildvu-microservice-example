@@ -34,12 +34,44 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
+/**
+ * Provides an API to use BuildVu on its own dedicated app server. See
+ * {@link BaseServlet} for more detailed information on the api since this class
+ * is focused mostly on conversions.
+ */
 @WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
+    /**
+     * Converts given pdf file to html using BuildVu. Errors at this stage of
+     * the process are reported to client via the {@link Individual} object when
+     * the client polls the servlet.
+     * <p>
+     * Possible Individual states attained from this method:
+     * <ul>
+     * <li>"error": Indicates that something has gone wrong.</li>
+     * <li>"processing": The file is being converted.</li>
+     * <li>"processed": The file has been converted and is ready for
+     * download.</li>
+     * </ul>
+     * <p>
+     * When the file is converted, the preview and download urls are passed to
+     * the client via the individual object as "previewUrl" and "downloadUrl"
+     * respectively.
+     *
+     * @param individual
+     * @param parameterMap
+     * @param fileName
+     * @param inputDirectory
+     * @param outputDirectory
+     * @param fileNameWithoutExt
+     * @param ext
+     * @param contextURL
+     */
+    @Override
     void convert(final Individual individual, final Map<String, String[]> parameterMap, final String fileName,
             final String inputDirectory, final String outputDirectory,
             final String fileNameWithoutExt, final String ext, final String contextURL) {
@@ -105,6 +137,14 @@ public class BuildVuServlet extends BaseServlet {
         }
     }
 
+    /**
+     * Set the error code in the given individual object.
+     * Error codes are based on the return values of convertToPdf().
+     * 
+     * @param individual
+     * @param errorCode 
+     * @see BuildVuServlet#convertToPDF(String, String) 
+     */
     private void setErrorCode(final Individual individual, final int errorCode) {
         switch (errorCode) {
             case 1:
@@ -120,7 +160,7 @@ public class BuildVuServlet extends BaseServlet {
     }
 
     /**
-     * Converts an office file to PDF
+     * Converts an office file to PDF.
      *
      * @param fileName Name of the office file to convert
      * @param directory Directory where the office file exists
