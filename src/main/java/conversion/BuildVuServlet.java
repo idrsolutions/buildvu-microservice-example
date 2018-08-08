@@ -138,12 +138,12 @@ public class BuildVuServlet extends BaseServlet {
     }
 
     /**
-     * Set the error code in the given individual object.
-     * Error codes are based on the return values of convertToPdf().
-     * 
+     * Set the error code in the given individual object. Error codes are based
+     * on the return values of convertToPdf().
+     *
      * @param individual
-     * @param errorCode 
-     * @see BuildVuServlet#convertToPDF(String, String) 
+     * @param errorCode
+     * @see BuildVuServlet#convertToPDF(String, String)
      */
     private void setErrorCode(final Individual individual, final int errorCode) {
         switch (errorCode) {
