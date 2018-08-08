@@ -1,17 +1,27 @@
+
 # BuildVu Microservice Example API #
 
 This document details the raw requests - for language specific wrappers / examples, see the [Usage section in the readme](README.md).
 
-### Upload ###
+### Uploading ###
+You have two options when Beginning a new conversion:
 
-To start a new conversion, send a POST request containing the file to convert. The encoding type should be multipart/form-data and provide a 'file' parameter containing the file data (content and filename). Note: 'filename' is usually included automatically but may not be depending on the tool generating the request.
+ - Option 1, Sending the file in the POST request:
+    - Send a POST request containing the file to    convert (see POST request contents).    
+    - The encoding type should be multipart/form-data and provide    a 'file' parameter containing the file data (content and filename).
+    - Note: 'filename' is usually included automatically but may not be    depending on the tool generating the request.  
+ - Option 2, Link the file through a URL:   
+    - Send a URL in the post data with key "converstionUrl".
+    - This server will attempt to download a file from that location.
+    - The encoding does not have to be multipart/form-data.
+    - Note: this option will be ignored if a file has been sent in the POST request.
 
 **URL:** ```/buildvu```
 
 **Method:** POST
 
 **Params:**
-* **Optional:** none
+* **Optional:** "filename": the name of the file (useful to send when passing the file via URL in case the name of the file cannot be parsed from the URL by the server).
 
 **Example request:**
 
@@ -46,12 +56,14 @@ foo_boundary--
 
 **Error Response(s):**
 * **Code** = 400
-* **Content** = ```{error: "Missing file"}```
+* **Content** = ```{error: "Missing file or URL"}```
 
 
 * **Code** = 500
-* **Content** = ```{error: "Missing file name"}```
+* **Content** = ```{error: "Missing file"}```
 
+* **Code** = 500
+* **Content** = ```{error: "Cannot get file data"}```
 
 * **Code** = 500
 * **Content** = ```{error: "Internal error"}```
@@ -83,8 +95,8 @@ To check the status of a conversion, send a GET request along with the UUID.
 ```
 {
     "state": [String], * Will be "queued", "processing", "processed" or "error"
-    "previewPath": [String], * Only when state is processed
-    "downloadPath": [String], * Only when state is processed
+    "previewUrl": [String], * Only when state is processed
+    "downloadUrl": [String], * Only when state is processed
     "error": [String] * Only when state is error
 }
 ```
