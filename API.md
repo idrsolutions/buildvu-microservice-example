@@ -94,7 +94,7 @@ To check the status of a conversion, send a GET request along with the UUID.
 
 ```
 {
-    "state": [String], * Will be "queued", "processing", "processed" or "error"
+    "state": [String], * Will be "queued", "downloading", "processing", "processed" or "error"
     "previewUrl": [String], * Only when state is processed
     "downloadUrl": [String], * Only when state is processed
     "error": [String] * Only when state is error
