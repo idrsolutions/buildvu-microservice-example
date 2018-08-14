@@ -98,8 +98,14 @@ To check the status of a conversion, send a GET request along with the UUID.
     "previewUrl": [String], * Only when state is processed
     "downloadUrl": [String], * Only when state is processed
     "error": [String] * Only when state is error
+    "errorCode" [integer] * Only on internal conversion error. See Internal error codes below
 }
 ```
+
+**Internal Error Codes**
+* 1050: libre office timeout
+* 1070: process error
+* 1100: other
 ___
 
 
