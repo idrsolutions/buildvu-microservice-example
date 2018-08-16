@@ -164,7 +164,7 @@ public class BuildVuServlet extends BaseServlet {
     }
 
     /**
-     * Converts an office file to PDF Converts an office file to PDF.
+     * Converts an office file to PDF.
      *
      * @param fileName Name of the office file to convert
      * @param directory Directory where the office file exists
