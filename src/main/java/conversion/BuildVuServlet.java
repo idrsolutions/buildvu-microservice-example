@@ -35,9 +35,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
- * Provides an API to use BuildVu on its own dedicated app server. See
- * {@link BaseServlet} for more detailed information on the api since this class
- * is focused mostly on conversions.
+ * Provides an API to use BuildVu on its own dedicated app server. See the API
+ * documentation for more information on how to interact with this servlet.
+ * 
+ * @see BaseServlet
  */
 @WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
 @MultipartConfig
@@ -46,30 +47,20 @@ public class BuildVuServlet extends BaseServlet {
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
     /**
-     * Converts given pdf file to html using BuildVu. Errors at this stage of
-     * the process are reported to client via the {@link Individual} object when
-     * the client polls the servlet.
+     * Converts given pdf file or office document to html using BuildVu or
+     * LibreOffice respectively.
      * <p>
-     * Possible Individual states attained from this method:
-     * <ul>
-     * <li>"error": Indicates that something has gone wrong.</li>
-     * <li>"processing": The file is being converted.</li>
-     * <li>"processed": The file has been converted and is ready for
-     * download.</li>
-     * </ul>
-     * <p>
-     * When the file is converted, the preview and download urls are passed to
-     * the client via the individual object as "previewUrl" and "downloadUrl"
-     * respectively.
+     * See API docs for information on how this method communicates via the
+     * individual object to the client.
      *
-     * @param individual
-     * @param parameterMap
-     * @param fileName
-     * @param inputDirectory
-     * @param outputDirectory
-     * @param fileNameWithoutExt
-     * @param ext
-     * @param contextURL
+     * @param individual The individual object associated with this conversion
+     * @param parameterMap The map of parameters that came with the request
+     * @param fileName the file name of the input file
+     * @param inputDirectory the input directory of the file
+     * @param outputDirectory the output directory of the converted html
+     * @param fileNameWithoutExt the input filename without its file extension
+     * @param ext the file exension of the input file
+     * @param contextURL The context that this servlet is running in
      */
     void convert(final Individual individual, final Map<String, String[]> parameterMap, final String fileName,
             final String inputDirectory, final String outputDirectory,
@@ -138,16 +129,11 @@ public class BuildVuServlet extends BaseServlet {
 
     /**
      * Set the error code in the given individual object. Error codes are based
-     * on the return values of convertToPdf().
+     * on the return values of 
+     * {@link BuildVuServlet#convertToPDF(String, String)}
      *
-     * Set the error code in the given individual object. Error codes are based
-     * on the return values of convertToPdf().
-     *
-     * @param individual
-     * @param errorCode
-     * @see BuildVuServlet#convertToPDF(String, String)
-     * @param errorCode
-     * @see BuildVuServlet#convertToPDF(String, String)
+     * @param individual the individual object associated with this conversion
+     * @param errorCode The return code to be parsed to an error code
      */
     private void setErrorCode(final Individual individual, final int errorCode) {
         switch (errorCode) {
