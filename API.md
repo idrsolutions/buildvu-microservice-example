@@ -67,15 +67,6 @@ input=download&url=http://your.domain/path/to/file.pdf
 } 
 ```
 
-
-**GET Error Response(s):**
-* **Code** = 404
-* **Content** = ```{error: "No uuid provided"}```
-
-* **Code** = 404
-* **Content** = ```{error: "Unknown uuid [uuid]"}```
-
-
 **POST Error Response(s):**
 * **Code** = 400
 * **Content** = ```{error: "Missing input type"}```
@@ -97,7 +88,6 @@ input=download&url=http://your.domain/path/to/file.pdf
 
 * **Code** = 400
 * **Content** = ```{error: "No url given"}```
-
 
 ___
 
@@ -138,6 +128,13 @@ Check the status of a conversion.
 * 1070: process error
 * 1100: other
 * 1200: could not get file from url
+
+**GET Error Response(s):**
+* **Code** = 404
+* **Content** = ```{error: "No uuid provided"}```
+
+* **Code** = 404
+* **Content** = ```{error: "Unknown uuid [uuid]"}```
 ___
 
 
