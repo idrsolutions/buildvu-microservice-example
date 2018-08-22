@@ -18,9 +18,9 @@ See HTTP and POST params below for list of parameters.
 **Method:** POST
 
 **HTTP and POST Params:**
-* **"Input":** the type of input for the server to handle.
+* **"input":** the type of input for the server to handle.
 * **"url":** the url for the server to handle; specified with {"input": "download"}.
-* **"file":** the file for the server to handle; specified with {"input": "upload"}. Uploaded using multipart/form-data.
+* **"file":** the file for the server to handle; specified with {"input": "upload"}.
 
 **Example request:**
 
@@ -51,17 +51,10 @@ foo_boundary--
 
 ```POST https://[URL]/buildvu
 POST / HTTP/1.1
-Content-Type: multipart/form-data; boundary=foo_boundary
+Content-Type: application/x-www-form-urlencoded;
+Content-Length: 54
 
---foo_boundary
-Content-Disposition: form-data; name="input"
-
-download
---foo_boundary
-Content-Disposition: form-data; name="url"
-
-http://your.domain/path/to/file.pdf
-foo_boundary--
+input=download&url=http://your.domain/path/to/file.pdf
 ```
 
 **Success Response(s):**
