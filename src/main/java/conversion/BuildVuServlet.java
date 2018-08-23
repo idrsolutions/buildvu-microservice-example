@@ -30,6 +30,7 @@ import javax.servlet.annotation.WebServlet;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -40,25 +41,26 @@ public class BuildVuServlet extends BaseServlet {
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
     @Override
-    void convert(QueueItem data) {
+    void convert(Individual individual, Map<String, String[]> params,
+            File inputFile, File outputDir, String contextUrl) {
 
-        final String[] settings = data.params.get("settings");
+        final String[] settings = params.get("settings");
         final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null;
-        final String fileName = data.inputFile.getName();
+        final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
         final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf("."));
         // To avoid repeated calls to getParent() and getAbsolutePath()
-        final String inputDir = data.inputFile.getParent();
-        final String outputDir = data.outputDir.getAbsolutePath();
+        final String inputDir = inputFile.getParent();
+        final String outputDirStr = outputDir.getAbsolutePath();
         
         final String userPdfFilePath;
 
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            final int result = convertToPDF(data.inputFile);
+            final int result = convertToPDF(inputFile);
             if (result != 0) {
-                data.individual.state = "error";
-                setErrorCode(data.individual, result);
+                individual.state = "error";
+                setErrorCode(individual, result);
                 return;
             }
             userPdfFilePath = inputDir + "/" + fileNameWithoutExt + ".pdf";
@@ -67,13 +69,13 @@ public class BuildVuServlet extends BaseServlet {
         }
 
         //Makes the directory for the output file
-        new File(outputDir + "/" + fileNameWithoutExt).mkdirs();
+        new File(outputDirStr + "/" + fileNameWithoutExt).mkdirs();
 
-        data.individual.state = "processing";
+        individual.state = "processing";
 
         try {
 
-            data.individual.outputDir = outputDir + "/" + fileNameWithoutExt;
+            individual.outputDir = outputDirStr + "/" + fileNameWithoutExt;
 
             final HashMap<String, String> paramMap = new HashMap<>();
             if (conversionParams != null) { //handle string based parameters
@@ -89,23 +91,23 @@ public class BuildVuServlet extends BaseServlet {
             final File inFile = new File(userPdfFilePath);
 
             final HTMLConversionOptions options = new HTMLConversionOptions(paramMap);
-            final PDFtoHTML5Converter html = new PDFtoHTML5Converter(inFile, data.outputDir, options, new IDRViewerOptions());
+            final PDFtoHTML5Converter html = new PDFtoHTML5Converter(inFile, outputDir, options, new IDRViewerOptions());
             html.convert();
 
-            ZipHelper.zipFolder(outputDir + "/" + fileNameWithoutExt,
-                                outputDir + "/" + fileNameWithoutExt + ".zip");
+            ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
+                                outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
-            final String outputPathInDocroot = data.individual.uuid + "/" + fileNameWithoutExt;
+            final String outputPathInDocroot = individual.uuid + "/" + fileNameWithoutExt;
 
-            data.individual.setValue("previewUrl", data.contextUrl + "/output/" + outputPathInDocroot + "/index.html");
-            data.individual.setValue("downloadUrl", data.contextUrl + "/output/" + outputPathInDocroot + ".zip");
+            individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+            individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
 
-            data.individual.state = "processed";
+            individual.state = "processed";
 
         } catch (final Exception ex) {
             ex.printStackTrace();
             LOG.severe(ex.getMessage());
-            data.individual.state = "error";
+            individual.state = "error";
         }
     }
 
