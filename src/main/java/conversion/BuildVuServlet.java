@@ -40,36 +40,42 @@ public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
-    void convert(final Individual individual, final Map<String, String[]> parameterMap, final String fileName,
-            final String inputDirectory, final String outputDirectory,
-            final String fileNameWithoutExt, final String ext, final String contextURL) {
+    @Override
+    void convert(Individual individual, Map<String, String[]> params,
+            File inputFile, File outputDir, String contextUrl) {
 
-        final String[] settings = parameterMap.get("settings");
+        final String[] settings = params.get("settings");
         final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null;
-
+        final String fileName = inputFile.getName();
+        final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
+        final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf("."));
+        // To avoid repeated calls to getParent() and getAbsolutePath()
+        final String inputDir = inputFile.getParent();
+        final String outputDirStr = outputDir.getAbsolutePath();
+        
         final String userPdfFilePath;
 
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            final int result = convertToPDF(fileName, inputDirectory);
+            final int result = convertToPDF(inputFile);
             if (result != 0) {
                 individual.state = "error";
                 setErrorCode(individual, result);
                 return;
             }
-            userPdfFilePath = inputDirectory + "/" + fileNameWithoutExt + ".pdf";
+            userPdfFilePath = inputDir + "/" + fileNameWithoutExt + ".pdf";
         } else {
-            userPdfFilePath = inputDirectory + "/" + fileName;
+            userPdfFilePath = inputDir + "/" + fileName;
         }
 
         //Makes the directory for the output file
-        new File(outputDirectory + "/" + fileNameWithoutExt).mkdirs();
+        new File(outputDirStr + "/" + fileNameWithoutExt).mkdirs();
 
         individual.state = "processing";
 
         try {
 
-            individual.outputDir = outputDirectory + "/" + fileNameWithoutExt;
+            individual.outputDir = outputDirStr + "/" + fileNameWithoutExt;
 
             final HashMap<String, String> paramMap = new HashMap<>();
             if (conversionParams != null) { //handle string based parameters
@@ -83,18 +89,18 @@ public class BuildVuServlet extends BaseServlet {
             }
 
             final File inFile = new File(userPdfFilePath);
-            final File outDir = new File(outputDirectory + "/");
 
             final HTMLConversionOptions options = new HTMLConversionOptions(paramMap);
-            final PDFtoHTML5Converter html = new PDFtoHTML5Converter(inFile, outDir, options, new IDRViewerOptions());
+            final PDFtoHTML5Converter html = new PDFtoHTML5Converter(inFile, outputDir, options, new IDRViewerOptions());
             html.convert();
 
-            ZipHelper.zipFolder(outputDirectory + "/" + fileNameWithoutExt, outputDirectory + "/" + fileNameWithoutExt + ".zip");
+            ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
+                                outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
-            final String outputDir = individual.uuid + "/" + fileNameWithoutExt;
+            final String outputPathInDocroot = individual.uuid + "/" + fileNameWithoutExt;
 
-            individual.setValue("previewUrl", contextURL + "/output/" + outputDir + "/index.html");
-            individual.setValue("downloadUrl", contextURL + "/output/" + outputDir + ".zip");
+            individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+            individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
 
             individual.state = "processed";
 
@@ -119,17 +125,9 @@ public class BuildVuServlet extends BaseServlet {
         }
     }
 
-    /**
-     * Converts an office file to PDF
-     *
-     * @param fileName Name of the office file to convert
-     * @param directory Directory where the office file exists
-     * @return 0 if success, 1 if libreoffice timed out, 2 if process error
-     * occurs
-     */
-    private static int convertToPDF(final String fileName, final String directory) {
-        final ProcessBuilder pb = new ProcessBuilder("soffice", "--headless", "--convert-to", "pdf", fileName);
-        pb.directory(new File(directory));
+    private static int convertToPDF(final File file) {
+        final ProcessBuilder pb = new ProcessBuilder("soffice", "--headless", "--convert-to", "pdf", file.getName());
+        pb.directory(new File(file.getParent()));
         final Process process;
 
         try {
@@ -144,10 +142,5 @@ public class BuildVuServlet extends BaseServlet {
             return 2;
         }
         return 0;
-    }
-
-    @Override
-    void updateProgress(final Individual individual) {
-        //
     }
 }
