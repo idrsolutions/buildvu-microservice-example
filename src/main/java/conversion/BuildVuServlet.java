@@ -34,12 +34,34 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
+/**
+ * Provides an API to use BuildVu on its own dedicated app server. See the API
+ * documentation for more information on how to interact with this servlet.
+ * 
+ * @see BaseServlet
+ */
 @WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
+    /**
+     * Converts given pdf file or office document to html using BuildVu or
+     * LibreOffice respectively.
+     * <p>
+     * See API docs for information on how this method communicates via the
+     * individual object to the client.
+     *
+     * @param individual The individual object associated with this conversion
+     * @param parameterMap The map of parameters that came with the request
+     * @param fileName the file name of the input file
+     * @param inputDirectory the input directory of the file
+     * @param outputDirectory the output directory of the converted html
+     * @param fileNameWithoutExt the input filename without its file extension
+     * @param ext the file exension of the input file
+     * @param contextURL The context that this servlet is running in
+     */
     @Override
     void convert(Individual individual, Map<String, String[]> params,
             File inputFile, File outputDir, String contextUrl) {
@@ -111,6 +133,14 @@ public class BuildVuServlet extends BaseServlet {
         }
     }
 
+    /**
+     * Set the error code in the given individual object. Error codes are based
+     * on the return values of 
+     * {@link BuildVuServlet#convertToPDF(String, String)}
+     *
+     * @param individual the individual object associated with this conversion
+     * @param errorCode The return code to be parsed to an error code
+     */
     private void setErrorCode(final Individual individual, final int errorCode) {
         switch (errorCode) {
             case 1:
@@ -125,6 +155,14 @@ public class BuildVuServlet extends BaseServlet {
         }
     }
 
+    /**
+     * Converts an office file to PDF.
+     *
+     * @param fileName Name of the office file to convert
+     * @param directory Directory where the office file exists
+     * @return 0 if success, 1 if libreoffice timed out, 2 if process error
+     * occurs
+     */
     private static int convertToPDF(final File file) {
         final ProcessBuilder pb = new ProcessBuilder("soffice", "--headless", "--convert-to", "pdf", file.getName());
         pb.directory(new File(file.getParent()));
