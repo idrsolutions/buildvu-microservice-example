@@ -7,7 +7,7 @@ This document details the raw requests - for language specific wrappers / exampl
 See HTTP and POST params below for list of parameters.
  - Option 1, Send file in POST request:
     - The encoding type should be multipart/form-data and provide a 'file' parameter containing the file data (content and filename).
-    - POST params should be ```{"input": "download"}```
+    - POST params should be ```{"input": "upload"}```
     - Note: 'filename' is usually included automatically but may not be depending on the tool generating the request.  
  - Option 2, Link to file through a URL:
     - POST params should be ```{"input": "download", "url": "http://your.url"}```
