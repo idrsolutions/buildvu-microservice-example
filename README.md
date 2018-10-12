@@ -1,6 +1,6 @@
 # BuildVu Microservice Example #
 
-IDRSolutions' BuildVu Microservice Example is an open source project that allows you to run BuildVu as an online service, which can be interacted with via the REST API.
+IDRsolutions' BuildVu Microservice Example is an open source project that allows you to convert PDF to HTML5 or SVG by running BuildVu as a web service in the cloud or on-premise. 
 
 **Please note that BuildVu is paid-for, commercial software - however you can use the trial version for free. Just rename the trial .jar to "buildvu.jar".**
 
