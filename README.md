@@ -21,7 +21,7 @@ Clone a copy of the buildvu-microservice-example git repo:
 git clone git://github.com/idrsolutions/buildvu-microservice-example
 ```
 
-Add the BuildVu jar to the project by copying it into the /lib directory.
+Add the BuildVu jar to the project by copying it into the /lib directory. Make sure that it is named "buildvu.jar"
 
 Open up a terminal / command prompt window in the base directory of the buildvu-microservice-example project, and build the .war file by running the command:
 ```

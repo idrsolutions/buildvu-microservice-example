@@ -21,9 +21,8 @@
 package conversion;
 
 import conversion.utils.ZipHelper;
-import org.jpedal.examples.html.PDFtoHTML5Converter;
+import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.render.output.IDRViewerOptions;
-import org.jpedal.render.output.html.HTMLConversionOptions;
 
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
@@ -47,20 +46,17 @@ public class BuildVuServlet extends BaseServlet {
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
     /**
-     * Converts given pdf file or office document to html using BuildVu or
-     * LibreOffice respectively.
+     * Converts given pdf file or office document to html or svg using BuildVu 
+     * and LibreOffice respectively.
      * <p>
      * See API docs for information on how this method communicates via the
      * individual object to the client.
-     *
+     * 
      * @param individual The individual object associated with this conversion
-     * @param parameterMap The map of parameters that came with the request
-     * @param fileName the file name of the input file
-     * @param inputDirectory the input directory of the file
-     * @param outputDirectory the output directory of the converted html
-     * @param fileNameWithoutExt the input filename without its file extension
-     * @param ext the file exension of the input file
-     * @param contextURL The context that this servlet is running in
+     * @param params The map of parameters that came with the request
+     * @param inputFile The input file
+     * @param outputDir The output directory of the converted file
+     * @param contextUrl The context that this servlet is running in
      */
     @Override
     void convert(Individual individual, Map<String, String[]> params,
@@ -112,9 +108,8 @@ public class BuildVuServlet extends BaseServlet {
 
             final File inFile = new File(userPdfFilePath);
 
-            final HTMLConversionOptions options = new HTMLConversionOptions(paramMap);
-            final PDFtoHTML5Converter html = new PDFtoHTML5Converter(inFile, outputDir, options, new IDRViewerOptions());
-            html.convert();
+            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, paramMap, new IDRViewerOptions());
+            converter.convert();
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
                                 outputDirStr + "/" + fileNameWithoutExt + ".zip");
@@ -159,7 +154,6 @@ public class BuildVuServlet extends BaseServlet {
      * Converts an office file to PDF.
      *
      * @param fileName Name of the office file to convert
-     * @param directory Directory where the office file exists
      * @return 0 if success, 1 if libreoffice timed out, 2 if process error
      * occurs
      */
