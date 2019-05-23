@@ -46,8 +46,11 @@ public class BuildVuServlet extends BaseServlet {
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
     /**
-     * Converts given pdf file or office document to html or svg using BuildVu 
-     * and LibreOffice respectively.
+     * Converts given pdf file or office document to html or svg using BuildVu-HTML
+     * and BuildVu-SVG respectively.
+     * <p>
+     * LibreOffice is used to preconvert office documents to PDF for BuildVu to
+     * process.
      * <p>
      * See API docs for information on how this method communicates via the
      * individual object to the client.
@@ -59,8 +62,8 @@ public class BuildVuServlet extends BaseServlet {
      * @param contextUrl The context that this servlet is running in
      */
     @Override
-    void convert(Individual individual, Map<String, String[]> params,
-            File inputFile, File outputDir, String contextUrl) {
+    protected void convert(Individual individual, Map<String, String[]> params,
+                           File inputFile, File outputDir, String contextUrl) {
 
         final String[] settings = params.get("settings");
         final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null;
@@ -77,7 +80,7 @@ public class BuildVuServlet extends BaseServlet {
         if (!isPDF) {
             final int result = convertToPDF(inputFile);
             if (result != 0) {
-                individual.state = "error";
+                individual.setState("error");
                 setErrorCode(individual, result);
                 return;
             }
@@ -89,12 +92,9 @@ public class BuildVuServlet extends BaseServlet {
         //Makes the directory for the output file
         new File(outputDirStr + "/" + fileNameWithoutExt).mkdirs();
 
-        individual.state = "processing";
+        individual.setState("processing");
 
         try {
-
-            individual.outputDir = outputDirStr + "/" + fileNameWithoutExt;
-
             final HashMap<String, String> paramMap = new HashMap<>();
             if (conversionParams != null) { //handle string based parameters
                 if (conversionParams.length % 2 == 0) {
@@ -114,24 +114,24 @@ public class BuildVuServlet extends BaseServlet {
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
                                 outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
-            final String outputPathInDocroot = individual.uuid + "/" + fileNameWithoutExt;
+            final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
 
             individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
             individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
 
-            individual.state = "processed";
+            individual.setState("processed");
 
         } catch (final Exception ex) {
             ex.printStackTrace();
             LOG.severe(ex.getMessage());
-            individual.state = "error";
+            individual.setState("error");
         }
     }
 
     /**
      * Set the error code in the given individual object. Error codes are based
      * on the return values of 
-     * {@link BuildVuServlet#convertToPDF(String, String)}
+     * {@link BuildVuServlet#convertToPDF(File)}
      *
      * @param individual the individual object associated with this conversion
      * @param errorCode The return code to be parsed to an error code
@@ -139,21 +139,21 @@ public class BuildVuServlet extends BaseServlet {
     private void setErrorCode(final Individual individual, final int errorCode) {
         switch (errorCode) {
             case 1:
-                individual.errorCode = String.valueOf(1050); // Libreoffice killed after 1 minute
+                individual.setErrorCode(String.valueOf(1050)); // Libreoffice killed after 1 minute
                 break;
             case 2:
-                individual.errorCode = String.valueOf(1070); // Internal error
+                individual.setErrorCode(String.valueOf(1070)); // Internal error
                 break;
             default:
-                individual.errorCode = String.valueOf(1100); // Internal error
+                individual.setErrorCode(String.valueOf(1100)); // Internal error
                 break;
         }
     }
 
     /**
-     * Converts an office file to PDF.
+     * Converts an office file to PDF using LibreOffice.
      *
-     * @param fileName Name of the office file to convert
+     * @param file The office file to convert to PDF
      * @return 0 if success, 1 if libreoffice timed out, 2 if process error
      * occurs
      */
