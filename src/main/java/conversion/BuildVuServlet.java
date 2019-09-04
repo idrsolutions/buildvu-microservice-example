@@ -28,10 +28,22 @@ import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.google.api.gax.paging.Page;
+import com.google.cloud.WriteChannel;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BucketListOption;
+import com.google.cloud.storage.StorageOptions;
 
 /**
  * Provides an API to use BuildVu on its own dedicated app server. See the API
@@ -42,6 +54,24 @@ import java.util.logging.Logger;
 @WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
+    
+    static {        
+        final String tmpdir = System.getProperty("java.io.tmpdir");
+        final String inputStr = tmpdir + "/docroot/input/";
+        final String outputStr = tmpdir + "/docroot/output/";
+        final File inputPath = new File(inputStr);
+        final File outputPath = new File(outputStr);
+
+        if (!inputPath.exists()) {
+            inputPath.mkdirs();
+        }
+        if (!outputPath.exists()) {
+            outputPath.mkdirs();
+        }
+
+        BaseServlet.setInputPath(inputStr);
+        BaseServlet.setOutputPath(outputStr);
+    }
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
@@ -113,6 +143,8 @@ public class BuildVuServlet extends BaseServlet {
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
                                 outputDirStr + "/" + fileNameWithoutExt + ".zip");
+            
+            uploadToGCP(outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
             final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
 
@@ -122,8 +154,7 @@ public class BuildVuServlet extends BaseServlet {
             individual.setState("processed");
 
         } catch (final Exception ex) {
-            ex.printStackTrace();
-            LOG.severe(ex.getMessage());
+            LOG.log(Level.SEVERE, "Exception thrown when converting file", ex);
             individual.setState("error");
         }
     }
@@ -139,14 +170,40 @@ public class BuildVuServlet extends BaseServlet {
     private void setErrorCode(final Individual individual, final int errorCode) {
         switch (errorCode) {
             case 1:
-                individual.setErrorCode(String.valueOf(1050)); // Libreoffice killed after 1 minute
+                individual.doError(1050); // Libreoffice killed after 1 minute
                 break;
             case 2:
-                individual.setErrorCode(String.valueOf(1070)); // Internal error
+                individual.doError(1070); // Internal error
                 break;
             default:
-                individual.setErrorCode(String.valueOf(1100)); // Internal error
+                individual.doError(1110); // Internal error
                 break;
+        }
+    }
+    
+    private void uploadToGCP(final String zipLocation) {
+        final Storage storage = StorageOptions.getDefaultInstance().getService();
+        final Page<Bucket> buckets = storage.list(BucketListOption.prefix(""));
+        final Iterator<Bucket> bi = buckets.getValues().iterator();
+        
+        if (bi.hasNext()) {
+            final Bucket bucket = bi.next();
+
+            BlobInfo blobInfo = BlobInfo.newBuilder(bucket.getName(), zipLocation).setContentType("application/zip").build();
+            try (WriteChannel writer = storage.writer(blobInfo)) {
+                try {
+                    RandomAccessFile zipFile = new RandomAccessFile(zipLocation, "r");
+                    FileChannel inChannel = zipFile.getChannel();
+                    MappedByteBuffer buffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
+                    for (int i = 0; i < buffer.limit(); i++) {
+                        writer.write(buffer);
+                    }
+                } catch (IOException ex) {
+                    LOG.log(Level.SEVERE, "IOException thrown when uploading converted file", ex);
+                }
+            } catch (Exception ex) {
+                LOG.log(Level.SEVERE, "Exception thrown when uploading converted file", ex);
+            }
         }
     }
 

@@ -1,0 +1,20 @@
+runtime:    java
+env:        flex
+threadsafe: false
+
+handlers:
+- url: /.*
+  script: this field is required, but ignored
+  secure: always
+automatic_scaling:
+  min_num_instances: 1
+  max_num_instances: 1  
+resources:
+  cpu: 1
+  memory_gb: 6
+  #disk_size_gb: 10
+  #volumes:
+  #- name: docroot
+  #  volume_type: tmpfs
+  #  size_gb: 2
+# [END appyaml]
