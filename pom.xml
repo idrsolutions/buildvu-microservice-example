@@ -6,7 +6,7 @@
     <groupId>com.idrsolutions</groupId>
     <artifactId>buildvu-microservice-example</artifactId>
     <packaging>war</packaging>
-    <version>2.3.0-alpha</version>
+    <version>3.3.0-alpha</version>
     <name>BuildVu Microservice Example</name>
 
     <dependencies>
@@ -31,7 +31,7 @@
     </dependencies>
     
     <build>
-        <finalName>microservice-example</finalName>
+        <finalName>buildvu-microservice</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
