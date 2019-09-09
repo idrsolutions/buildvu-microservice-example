@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -122,8 +123,7 @@ public class BuildVuServlet extends BaseServlet {
             individual.setState("processed");
 
         } catch (final Exception ex) {
-            ex.printStackTrace();
-            LOG.severe(ex.getMessage());
+            LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
             individual.setState("error");
         }
     }
@@ -139,13 +139,13 @@ public class BuildVuServlet extends BaseServlet {
     private void setErrorCode(final Individual individual, final int errorCode) {
         switch (errorCode) {
             case 1:
-                individual.setErrorCode(String.valueOf(1050)); // Libreoffice killed after 1 minute
+                individual.doError(1050); // Libreoffice killed after 1 minute
                 break;
             case 2:
-                individual.setErrorCode(String.valueOf(1070)); // Internal error
+                individual.doError(1050); // Internal error
                 break;
             default:
-                individual.setErrorCode(String.valueOf(1100)); // Internal error
+                individual.doError(1050); // Internal error
                 break;
         }
     }
