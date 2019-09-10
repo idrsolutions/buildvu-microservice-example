@@ -142,7 +142,7 @@ public class BuildVuServlet extends BaseServlet {
                 individual.doError(1050); // Libreoffice killed after 1 minute
                 break;
             case 2:
-                individual.doError(1050); // Internal error
+                individual.doError(1070); // Internal error
                 break;
             default:
                 individual.doError(1050); // Internal error
