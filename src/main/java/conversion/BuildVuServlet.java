@@ -145,7 +145,7 @@ public class BuildVuServlet extends BaseServlet {
                 individual.doError(1070); // Internal error
                 break;
             default:
-                individual.doError(1050); // Internal error
+                individual.doError(1100); // Internal error
                 break;
         }
     }
