@@ -39,6 +39,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.WriteChannel;
+import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage;
@@ -55,25 +56,18 @@ import com.google.cloud.storage.StorageOptions;
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
     
-    static {        
-        final String tmpdir = System.getProperty("java.io.tmpdir");
-        final String inputStr = tmpdir + "/docroot/input/";
-        final String outputStr = tmpdir + "/docroot/output/";
-        final File inputPath = new File(inputStr);
-        final File outputPath = new File(outputStr);
-
-        if (!inputPath.exists()) {
-            inputPath.mkdirs();
+    static {
+        final String defaultOutput = System.getProperty("com.idrsolutions.defaultOutput");
+        DEFAULT_OUTPUT = defaultOutput != null ? defaultOutput.toLowerCase() : "gcp";
+        
+        final boolean useTempDir = Boolean.getBoolean("com.idrsolutions.useTempDir");
+        if (useTempDir || true) {
+            BuildVuServlet.useTempDir();
         }
-        if (!outputPath.exists()) {
-            outputPath.mkdirs();
-        }
-
-        BaseServlet.setInputPath(inputStr);
-        BaseServlet.setOutputPath(outputStr);
     }
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
+    private static final String DEFAULT_OUTPUT;
 
     /**
      * Converts given pdf file or office document to html or svg using BuildVu-HTML
@@ -97,6 +91,10 @@ public class BuildVuServlet extends BaseServlet {
 
         final String[] settings = params.get("settings");
         final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null;
+        final String[] rawOutput = params.get("output");
+        final String output = rawOutput != null ? rawOutput[0].toLowerCase() : DEFAULT_OUTPUT;
+        final String[] rawOutputOptions = params.get("outputOptions");
+        final String[] outputOptions = rawOutputOptions != null ? getConversionParams(rawOutputOptions[0]) : null;
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
         final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf("."));
@@ -125,17 +123,7 @@ public class BuildVuServlet extends BaseServlet {
         individual.setState("processing");
 
         try {
-            final HashMap<String, String> paramMap = new HashMap<>();
-            if (conversionParams != null) { //handle string based parameters
-                if (conversionParams.length % 2 == 0) {
-                    for (int z = 0; z < conversionParams.length; z = z + 2) {
-                        paramMap.put(conversionParams[z], conversionParams[z + 1]);
-                    }
-                } else {
-                    throw new Exception("Invalid length of String arguments");
-                }
-            }
-
+            final Map<String, String> paramMap = strArrToMap(conversionParams);
             final File inFile = new File(userPdfFilePath);
 
             final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, paramMap, new IDRViewerOptions());
@@ -144,13 +132,22 @@ public class BuildVuServlet extends BaseServlet {
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
                                 outputDirStr + "/" + fileNameWithoutExt + ".zip");
             
-            uploadToGCP(outputDirStr + "/" + fileNameWithoutExt + ".zip");
+            switch (output) {
+                case "gcp":
+                    uploadToGCP(individual, outputDirStr + "/" + fileNameWithoutExt + ".zip", strArrToMap(outputOptions));
+                    deleteLocalFiles(inputDir, outputDirStr, individual);
+                    break;
+                case "local":
+                    final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
 
-            final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
-
-            individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
-            individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
-
+                    individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+                    individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+                    break;
+                default:
+                    setErrorCode(individual, 3);
+                    break;
+            }
+            
             individual.setState("processed");
 
         } catch (final Exception ex) {
@@ -175,36 +172,68 @@ public class BuildVuServlet extends BaseServlet {
             case 2:
                 individual.doError(1070); // Internal error
                 break;
+            case 3:
+                individual.doError(1080); // Invalid Output
+                break;
             default:
                 individual.doError(1110); // Internal error
                 break;
         }
     }
     
-    private void uploadToGCP(final String zipLocation) {
+    private void uploadToGCP(final Individual individual, final String zipLocation, final Map<String, String> outputOptions) throws Exception {
         final Storage storage = StorageOptions.getDefaultInstance().getService();
-        final Page<Bucket> buckets = storage.list(BucketListOption.prefix(""));
+        final String bucketPrefix = outputOptions.getOrDefault("bucketPrefix", "");
+        final Page<Bucket> buckets = storage.list(BucketListOption.prefix(bucketPrefix));
         final Iterator<Bucket> bi = buckets.getValues().iterator();
         
-        if (bi.hasNext()) {
+        if (bi != null && bi.hasNext()) {
             final Bucket bucket = bi.next();
 
-            BlobInfo blobInfo = BlobInfo.newBuilder(bucket.getName(), zipLocation).setContentType("application/zip").build();
-            try (WriteChannel writer = storage.writer(blobInfo)) {
-                try {
-                    RandomAccessFile zipFile = new RandomAccessFile(zipLocation, "r");
-                    FileChannel inChannel = zipFile.getChannel();
-                    MappedByteBuffer buffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
-                    for (int i = 0; i < buffer.limit(); i++) {
-                        writer.write(buffer);
+            final BlobInfo blobInfo = BlobInfo.newBuilder(bucket.getName(), zipLocation).setContentType("application/zip").build();
+            final Blob blob = storage.create(blobInfo, Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
+            
+            if (blob != null) {
+                try (WriteChannel writer = storage.writer(blobInfo)) {
+                    try {
+                        final RandomAccessFile zipFile = new RandomAccessFile(zipLocation, "r");
+                        final FileChannel inChannel = zipFile.getChannel();
+                        final MappedByteBuffer buffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
+                        for (int i = 0; i < buffer.limit(); i++) {
+                            writer.write(buffer);
+                        }
+
+                        individual.setValue("downloadUrl", blob.getMediaLink());
+                        individual.setValue("acl", blob.getAcl().toString());
+                    } catch (IOException ex) {
+                        LOG.log(Level.SEVERE, "IOException thrown when uploading converted file", ex);
                     }
-                } catch (IOException ex) {
-                    LOG.log(Level.SEVERE, "IOException thrown when uploading converted file", ex);
+                } catch (Exception ex) {
+                    LOG.log(Level.SEVERE, "Exception thrown when uploading converted file", ex);
                 }
-            } catch (Exception ex) {
-                LOG.log(Level.SEVERE, "Exception thrown when uploading converted file", ex);
+            } else {
+               throw new Exception("Cannot create blob on GCP");
             }
         }
+    }
+    
+    private Map<String, String> strArrToMap(final String[] strArr) throws Exception {
+        final Map<String, String> map = new HashMap<>();
+        if (strArr != null) { //handle string based parameters
+            if (strArr.length % 2 == 0) {
+                for (int z = 0; z < strArr.length; z = z + 2) {
+                    map.put(strArr[z], strArr[z + 1]);
+                }
+            } else {
+                throw new Exception("Invalid length of String arguments");
+            }
+        }
+        return map;
+    }
+    
+    private void deleteLocalFiles(final String inputDir, final String outputDir, Individual individual) {
+        individual.setValue("inputDir", inputDir);
+        individual.setValue("outputDir", outputDir);
     }
 
     /**
@@ -226,10 +255,35 @@ public class BuildVuServlet extends BaseServlet {
                 return 1;
             }
         } catch (final IOException | InterruptedException e) {
-            e.printStackTrace(); // soffice location may need to be added to the path
-            LOG.severe(e.getMessage());
+            LOG.log(Level.SEVERE, "Exception thrown in LibreOffice conversion", e); // soffice location may need to be added to the path
             return 2;
         }
         return 0;
+    }
+    
+    private static void useTempDir() {
+        final String tmpdir = System.getProperty("java.io.tmpdir");
+        if (tmpdir != null) {
+            final String inputStr = tmpdir + "/docroot/input/";
+            final String outputStr = tmpdir + "/docroot/output/";
+            final File inputPath = new File(inputStr);
+            final File outputPath = new File(outputStr);
+            
+            try {
+                if (!inputPath.exists()) {
+                    inputPath.mkdirs();
+                }
+                if (!outputPath.exists()) {
+                    outputPath.mkdirs();
+                }
+            } catch (SecurityException se) {
+                LOG.log(Level.SEVERE, "SecurityException thrown when creating docroot directories", se);
+            }
+            
+            BaseServlet.setInputPath(inputStr);
+            BaseServlet.setOutputPath(outputStr);
+        } else {
+            LOG.log(Level.SEVERE, "java.io.tmpdir is unset, docroot has not been set up in the temp directory");
+        }
     }
 }
