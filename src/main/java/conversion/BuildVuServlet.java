@@ -62,10 +62,10 @@ public class BuildVuServlet extends BaseServlet {
     
     static {
         final String defaultOutput = System.getProperty("com.idrsolutions.defaultOutput");
-        DEFAULT_OUTPUT = defaultOutput != null ? defaultOutput.toLowerCase() : "gcp";
+        DEFAULT_OUTPUT = defaultOutput != null ? defaultOutput.toLowerCase() : "local";
         
         final boolean useTempDir = Boolean.getBoolean("com.idrsolutions.useTempDir");
-        if (useTempDir || true) {
+        if (useTempDir) {
             BuildVuServlet.useTempDir();
         }
     }
@@ -252,7 +252,7 @@ public class BuildVuServlet extends BaseServlet {
                         writer.write(buffer);
                     }
 
-                    individual.setValue("blob", blob.toString());
+                    individual.setValue("blob", blob.getName());
                     individual.setValue("downloadUrl", blob.getMediaLink());
                     individual.setState("processed");
                 } catch (IOException ex) {
