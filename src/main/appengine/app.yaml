@@ -12,9 +12,4 @@ automatic_scaling:
 resources:
   cpu: 1
   memory_gb: 6
-  #disk_size_gb: 10
-  #volumes:
-  #- name: docroot
-  #  volume_type: tmpfs
-  #  size_gb: 2
 # [END appyaml]
