@@ -38,13 +38,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import com.google.api.gax.paging.Page;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.Storage.BucketListOption;
 import com.google.cloud.storage.StorageOptions;
+import java.io.ByteArrayInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 
 /**
  * Provides an API to use BuildVu on its own dedicated app server. See the API
@@ -134,25 +138,25 @@ public class BuildVuServlet extends BaseServlet {
             
             switch (output) {
                 case "gcp":
-                    uploadToGCP(individual, outputDirStr + "/" + fileNameWithoutExt + ".zip", strArrToMap(outputOptions));
-                    deleteLocalFiles(inputDir, outputDirStr, individual);
+                    individual.setState("starting output upload");
+                    handleGCPUpload(individual, outputDirStr + "/" + fileNameWithoutExt + ".zip", strArrToMap(outputOptions));
+                    deleteLocalFiles(inputDir, outputDirStr);
                     break;
                 case "local":
                     final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
 
                     individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
                     individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+                    individual.setState("processed");
                     break;
                 default:
                     setErrorCode(individual, 3);
                     break;
             }
             
-            individual.setState("processed");
-
         } catch (final Exception ex) {
             LOG.log(Level.SEVERE, "Exception thrown when converting file", ex);
-            individual.setState("error");
+            setErrorCode(individual, 0);
         }
     }
 
@@ -173,7 +177,7 @@ public class BuildVuServlet extends BaseServlet {
                 individual.doError(1070); // Internal error
                 break;
             case 3:
-                individual.doError(1080); // Invalid Output
+                individual.doError(1080); // Invalid Output Method
                 break;
             default:
                 individual.doError(1110); // Internal error
@@ -181,42 +185,98 @@ public class BuildVuServlet extends BaseServlet {
         }
     }
     
-    private void uploadToGCP(final Individual individual, final String zipLocation, final Map<String, String> outputOptions) throws Exception {
-        final Storage storage = StorageOptions.getDefaultInstance().getService();
-        final String bucketPrefix = outputOptions.getOrDefault("bucketPrefix", "");
-        final Page<Bucket> buckets = storage.list(BucketListOption.prefix(bucketPrefix));
+    /**
+     * Handles the process of uploading to the Google Cloud Platform using the
+     * google-cloud-storage Java library.
+     * 
+     * @param individual the individual object associated with this conversion
+     * @param zipLocation the location of the zip file of the conversion output
+     * @param outputOptions a map of the custom output options
+     * @throws Exception when there is an issue loading the storage bucket or
+     * when uploading the output file
+     */
+    private void handleGCPUpload(final Individual individual, final String zipLocation, final Map<String, String> outputOptions) throws Exception {
+        final Storage storage;
+        final String gcpAC = outputOptions.get("gcpApplicationCredentials"); //see the GOOGLE_APPLICATION_CREDENTIALS environment variable documentation
+        final String bucketName = outputOptions.get("bucketName");
+        
+        if (gcpAC != null) {
+            final ByteArrayInputStream gcpACStream = new ByteArrayInputStream(gcpAC.getBytes());
+            final GoogleCredentials credentials = GoogleCredentials.fromStream(gcpACStream).createScoped("https://www.googleapis.com/auth/cloud-platform");
+            storage = StorageOptions.newBuilder().setCredentials(credentials).build().getService();
+        } else {
+            storage = StorageOptions.getDefaultInstance().getService();
+        }
+        
+        final Page<Bucket> buckets = storage.list();
         final Iterator<Bucket> bi = buckets.getValues().iterator();
         
-        if (bi != null && bi.hasNext()) {
-            final Bucket bucket = bi.next();
-
-            final BlobInfo blobInfo = BlobInfo.newBuilder(bucket.getName(), zipLocation).setContentType("application/zip").build();
-            final Blob blob = storage.create(blobInfo, Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
-            
-            if (blob != null) {
-                try (WriteChannel writer = storage.writer(blobInfo)) {
-                    try {
-                        final RandomAccessFile zipFile = new RandomAccessFile(zipLocation, "r");
-                        final FileChannel inChannel = zipFile.getChannel();
-                        final MappedByteBuffer buffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
-                        for (int i = 0; i < buffer.limit(); i++) {
-                            writer.write(buffer);
-                        }
-
-                        individual.setValue("downloadUrl", blob.getMediaLink());
-                        individual.setValue("acl", blob.getAcl().toString());
-                    } catch (IOException ex) {
-                        LOG.log(Level.SEVERE, "IOException thrown when uploading converted file", ex);
-                    }
-                } catch (Exception ex) {
-                    LOG.log(Level.SEVERE, "Exception thrown when uploading converted file", ex);
+        if (bucketName != null) {
+            while (bi.hasNext()) {
+                final Bucket bucket = bi.next();
+                if (bucket.getName().equals(bucketName)) {
+                    uploadToGCP(individual, bucket, zipLocation);
+                    return;
                 }
-            } else {
-               throw new Exception("Cannot create blob on GCP");
             }
+            throw new Exception("Unable to find a match to the requested bucket named " + bucketName + " on GCP");
+        } else if (bi != null && bi.hasNext()) {
+            final Bucket bucket = bi.next();
+            uploadToGCP(individual, bucket, zipLocation);
+        } else {
+            throw new Exception("Unable to load a bucket on GCP");
+        }
+    }
+
+    /**
+     * Uploads the zip file provided to the GCP storage bucket provided.
+     * 
+     * @param individual the individual object associated with this conversion
+     * @param bucket the GCP storage bucket where the zip output will be stored
+     * @param zipLocation the location of the zip file of the conversion output
+     * @throws Exception when there is an issue uploading the zip output
+     */
+    private void uploadToGCP(final Individual individual, final Bucket bucket, final String zipLocation) throws Exception {
+        final Storage storage = bucket.getStorage();
+        final BlobInfo blobInfo = BlobInfo.newBuilder(bucket.getName(), zipLocation).setContentType("application/zip").build();
+        final Blob blob = storage.create(blobInfo, Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
+
+        if (blob != null) {
+            try (WriteChannel writer = storage.writer(blobInfo)) {
+                individual.setState("uploading ouput");
+                try {
+                    final RandomAccessFile zipFile = new RandomAccessFile(zipLocation, "r");
+                    final FileChannel inChannel = zipFile.getChannel();
+                    final MappedByteBuffer buffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
+                    for (int i = 0; i < buffer.limit(); i++) {
+                        writer.write(buffer);
+                    }
+
+                    individual.setValue("blob", blob.toString());
+                    individual.setValue("downloadUrl", blob.getMediaLink());
+                    individual.setState("processed");
+                } catch (IOException ex) {
+                    LOG.log(Level.SEVERE, "IOException thrown when uploading converted file", ex);
+                    throw ex;
+                }
+            } catch (Exception ex) {
+                LOG.log(Level.SEVERE, "Exception thrown when uploading converted file", ex);
+                throw ex;
+            }
+        } else {
+           throw new Exception("Cannot create blob on GCP");
         }
     }
     
+    /**
+     * Converts a String array in the form [key1, val1, etc...] into a 
+     * Map<String, String>.
+     * 
+     * @param strArr a String array in the form [key1, val1, key2, val2, etc...]
+     * @return a Map<String, String> with the key/val from the input string 
+     * array
+     * @throws Exception when an invalid strArr is provided
+     */
     private Map<String, String> strArrToMap(final String[] strArr) throws Exception {
         final Map<String, String> map = new HashMap<>();
         if (strArr != null) { //handle string based parameters
@@ -231,9 +291,30 @@ public class BuildVuServlet extends BaseServlet {
         return map;
     }
     
-    private void deleteLocalFiles(final String inputDir, final String outputDir, Individual individual) {
-        individual.setValue("inputDir", inputDir);
-        individual.setValue("outputDir", outputDir);
+    /**
+     * Deletes the local files in both the input directory and output directory. 
+     * The deletion is recursive so all files inside will be deleted.
+     * 
+     * @param inputDir The path to the local input directory
+     * @param outputDir The path to the local output directory
+     * @throws IOException When an issue is encountered when deleting the file
+     */
+    private void deleteLocalFiles(final String inputDir, final String outputDir) throws IOException {
+        final File inputFile = new File(inputDir);
+        final Path inputPath = inputFile.toPath();
+        Files.walk(inputPath).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+        
+        if (inputFile.exists()) {
+            LOG.log(Level.SEVERE, "Local input directory was not deleted successfully");
+        }
+        
+        final File outputFile = new File(outputDir);
+        final Path outputPath = outputFile.toPath();
+        Files.walk(outputPath).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+        
+        if (outputFile.exists()) {
+            LOG.log(Level.SEVERE, "Local output directory was not deleted successfully");
+        }
     }
 
     /**
@@ -261,6 +342,11 @@ public class BuildVuServlet extends BaseServlet {
         return 0;
     }
     
+    /**
+     * Makes use of the java.io.tmpdir property to create and then use docroot 
+     * input/output folders to store files for conversions locally. If tmpdir is
+     * unset, the directory will not be created or used.
+     */
     private static void useTempDir() {
         final String tmpdir = System.getProperty("java.io.tmpdir");
         if (tmpdir != null) {
