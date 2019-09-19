@@ -25,7 +25,7 @@
         <dependency>
             <groupId>com.idrsolutions</groupId>
             <artifactId>base-microservice-example</artifactId>
-            <version>5.1.0-alpha</version>
+            <version>5.2.1-alpha</version>
         </dependency>
         <dependency>
             <groupId>buildvu</groupId>
@@ -33,16 +33,6 @@
             <version>1.0</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/buildvu.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>google-cloud-storage</artifactId>
-            <version>1.88.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.api</groupId>
-            <artifactId>api-common</artifactId>
-            <version>1.8.1</version>
         </dependency>
     </dependencies>
     
@@ -52,7 +42,7 @@
             <properties>
                 <failOnMissingWebXml>false</failOnMissingWebXml>
                 <gcp.deploy.projectId>GCLOUD_CONFIG</gcp.deploy.projectId>
-                <gcp.deploy.version>1</gcp.deploy.version>
+                <gcp.deploy.version>GCLOUD_CONFIG</gcp.deploy.version>
                 <gcp.deploy.promote>true</gcp.deploy.promote>
             </properties>
             <build>

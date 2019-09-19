@@ -21,30 +21,18 @@
 package conversion;
 
 import conversion.utils.ZipHelper;
+import conversion.utils.GCPHelper;
 import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.render.output.IDRViewerOptions;
 
-import com.google.api.gax.paging.Page;
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.WriteChannel;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Bucket;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -139,7 +127,9 @@ public class BuildVuServlet extends BaseServlet {
             switch (output) {
                 case "gcp":
                     individual.setState("starting output upload");
-                    handleGCPUpload(individual, outputDirStr + "/" + fileNameWithoutExt + ".zip", strArrToMap(outputOptions));
+                    GCPHelper.handleGCPUpload(individual, outputDirStr + "/" + fileNameWithoutExt + ".zip",
+                                              "application/zip", strArrToMap(outputOptions));
+                    individual.setState("processed");
                     deleteLocalFiles(inputDir, outputDirStr);
                     break;
                 case "local":
@@ -182,89 +172,6 @@ public class BuildVuServlet extends BaseServlet {
             default:
                 individual.doError(1110); // Internal error
                 break;
-        }
-    }
-    
-    /**
-     * Handles the process of uploading to the Google Cloud Platform using the
-     * google-cloud-storage Java library.
-     * 
-     * @param individual the individual object associated with this conversion
-     * @param zipLocation the location of the zip file of the conversion output
-     * @param outputOptions a map of the custom output options
-     * @throws Exception when there is an issue loading the storage bucket or
-     * when uploading the output file
-     */
-    private void handleGCPUpload(final Individual individual, final String zipLocation, final Map<String, String> outputOptions) throws Exception {
-        final Storage storage;
-        final String gcpAC = outputOptions.get("gcpApplicationCredentials"); //see the GOOGLE_APPLICATION_CREDENTIALS environment variable documentation
-        final String bucketName = outputOptions.get("bucketName");
-        
-        if (gcpAC != null) {
-            final ByteArrayInputStream gcpACStream = new ByteArrayInputStream(gcpAC.getBytes());
-            final GoogleCredentials credentials = GoogleCredentials.fromStream(gcpACStream).createScoped("https://www.googleapis.com/auth/cloud-platform");
-            storage = StorageOptions.newBuilder().setCredentials(credentials).build().getService();
-        } else {
-            storage = StorageOptions.getDefaultInstance().getService();
-        }
-        
-        final Page<Bucket> buckets = storage.list();
-        final Iterator<Bucket> bi = buckets.getValues().iterator();
-        
-        if (bucketName != null) {
-            while (bi.hasNext()) {
-                final Bucket bucket = bi.next();
-                if (bucket.getName().equals(bucketName)) {
-                    uploadToGCP(individual, bucket, zipLocation);
-                    return;
-                }
-            }
-            throw new Exception("Unable to find a match to the requested bucket named " + bucketName + " on GCP");
-        } else if (bi != null && bi.hasNext()) {
-            final Bucket bucket = bi.next();
-            uploadToGCP(individual, bucket, zipLocation);
-        } else {
-            throw new Exception("Unable to load a bucket on GCP");
-        }
-    }
-
-    /**
-     * Uploads the zip file provided to the GCP storage bucket provided.
-     * 
-     * @param individual the individual object associated with this conversion
-     * @param bucket the GCP storage bucket where the zip output will be stored
-     * @param zipLocation the location of the zip file of the conversion output
-     * @throws Exception when there is an issue uploading the zip output
-     */
-    private void uploadToGCP(final Individual individual, final Bucket bucket, final String zipLocation) throws Exception {
-        final Storage storage = bucket.getStorage();
-        final BlobInfo blobInfo = BlobInfo.newBuilder(bucket.getName(), zipLocation).setContentType("application/zip").build();
-        final Blob blob = storage.create(blobInfo, Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
-
-        if (blob != null) {
-            try (WriteChannel writer = storage.writer(blobInfo)) {
-                individual.setState("uploading ouput");
-                try {
-                    final RandomAccessFile zipFile = new RandomAccessFile(zipLocation, "r");
-                    final FileChannel inChannel = zipFile.getChannel();
-                    final MappedByteBuffer buffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
-                    for (int i = 0; i < buffer.limit(); i++) {
-                        writer.write(buffer);
-                    }
-
-                    individual.setValue("blob", blob.getName());
-                    individual.setValue("downloadUrl", blob.getMediaLink());
-                    individual.setState("processed");
-                } catch (IOException ex) {
-                    LOG.log(Level.SEVERE, "IOException thrown when uploading converted file", ex);
-                    throw ex;
-                }
-            } catch (Exception ex) {
-                LOG.log(Level.SEVERE, "Exception thrown when uploading converted file", ex);
-                throw ex;
-            }
-        } else {
-           throw new Exception("Cannot create blob on GCP");
         }
     }
     
