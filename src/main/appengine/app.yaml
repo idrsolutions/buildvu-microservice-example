@@ -12,4 +12,6 @@ automatic_scaling:
 resources:
   cpu: 1
   memory_gb: 6
+env_variables:
+  JAVA_OPTS: -Dcom.idrsolutions.useTempDir=true -Dcom.idrsolutions.defaultOutput=gcp
 # [END appyaml]

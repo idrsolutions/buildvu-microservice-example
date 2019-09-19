@@ -42,7 +42,7 @@
             <properties>
                 <failOnMissingWebXml>false</failOnMissingWebXml>
                 <gcp.deploy.projectId>GCLOUD_CONFIG</gcp.deploy.projectId>
-                <gcp.deploy.version>GCLOUD_CONFIG</gcp.deploy.version>
+                <gcp.deploy.version></gcp.deploy.version>
                 <gcp.deploy.promote>true</gcp.deploy.promote>
             </properties>
             <build>
