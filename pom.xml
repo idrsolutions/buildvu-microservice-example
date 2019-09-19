@@ -25,7 +25,7 @@
         <dependency>
             <groupId>com.idrsolutions</groupId>
             <artifactId>base-microservice-example</artifactId>
-            <version>5.2.1-alpha</version>
+            <version>5.2.0-alpha</version>
         </dependency>
         <dependency>
             <groupId>buildvu</groupId>
