@@ -19,7 +19,7 @@ If you do not have a full verison of BuildVu you can get the trial version from 
 
 [C#](https://github.com/idrsolutions/BuildVuCSharpClient), [JavaScript](https://github.com/idrsolutions/buildvu-js-client), [Node.js](https://github.com/idrsolutions/buildvu-nodejs-client), [PHP](https://github.com/idrsolutions/buildvu-php-client), [Ruby](https://github.com/idrsolutions/buildvu-ruby-client), [Python](https://github.com/idrsolutions/buildvu-python-client)
 
-please Follow instructions on relevant pages on how to do this.
+please follow instructions on relevant pages on how to do this.
 
 ### Build: ###
 
