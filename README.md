@@ -13,6 +13,14 @@ IDRsolutions' BuildVu Microservice Example is an open source project that allows
 * [BuildVu](https://www.idrsolutions.com/buildvu/download/) - this provides all the conversion functionality.
 * [Maven](https://maven.apache.org/download.cgi) - used to build the .war file.
 
+### Trial Version: ###
+
+If you do not have a full verison of BuildVu you can get the trial version from [here](https://www.idrsolutions.com/buildvu/trial-download/). This can then be used with the following languages:
+
+[C#](https://github.com/idrsolutions/BuildVuCSharpClient), [JavaScript](https://github.com/idrsolutions/buildvu-js-client), [Node.js](https://github.com/idrsolutions/buildvu-nodejs-client), [PHP](https://github.com/idrsolutions/buildvu-php-client), [Ruby](https://github.com/idrsolutions/buildvu-ruby-client), [Python](https://github.com/idrsolutions/buildvu-python-client)
+
+please follow instructions on relevant pages on how to do this.
+
 ### Build: ###
 
 Clone a copy of the buildvu-microservice-example git repo:
