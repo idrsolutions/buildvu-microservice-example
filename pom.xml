@@ -6,7 +6,7 @@
     <groupId>com.idrsolutions</groupId>
     <artifactId>buildvu-microservice-example</artifactId>
     <packaging>war</packaging>
-    <version>3.0.1-alpha</version>
+    <version>4.0.1-alpha</version>
     <name>BuildVu Microservice Example</name>
 
     <dependencies>
@@ -26,7 +26,7 @@
             <artifactId>com.idrsolutions</artifactId>
             <version>1.0</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/lib/buildvu.jar</systemPath>
+            <systemPath>${project.basedir}/lib/buildvu-html.jar</systemPath>
         </dependency>
     </dependencies>
     

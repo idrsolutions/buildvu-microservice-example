@@ -18,9 +18,11 @@
  * limitations under the License.
  *
  */
-package conversion;
+package microservice;
 
-import conversion.utils.ZipHelper;
+import com.idrsolutions.microservice.BaseServlet;
+import com.idrsolutions.microservice.Individual;
+import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.render.output.IDRViewerOptions;
 
