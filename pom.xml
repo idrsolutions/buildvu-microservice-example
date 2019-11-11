@@ -9,23 +9,6 @@
     <version>4.0.1-alpha</version>
     <name>BuildVu Microservice Example</name>
 
-    <profiles>
-        <profile>
-            <id>trial</id>
-
-            <properties>
-                <release.version>trial</release.version>
-            </properties>
-        </profile>
-        <profile>
-            <id>full</id>
-
-            <properties>
-                <release.version>full</release.version>
-            </properties>
-        </profile>
-    </profiles>
-
     <dependencies>
         <dependency>
             <groupId>javax</groupId>
