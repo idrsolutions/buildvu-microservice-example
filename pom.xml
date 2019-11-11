@@ -6,8 +6,25 @@
     <groupId>com.idrsolutions</groupId>
     <artifactId>buildvu-microservice-example</artifactId>
     <packaging>war</packaging>
-    <version>4.0.0-alpha</version>
+    <version>4.0.1-alpha</version>
     <name>BuildVu Microservice Example</name>
+
+    <profiles>
+        <profile>
+            <id>trial</id>
+
+            <properties>
+                <release.version>trial</release.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>full</id>
+
+            <properties>
+                <release.version>full</release.version>
+            </properties>
+        </profile>
+    </profiles>
 
     <dependencies>
         <dependency>
@@ -29,8 +46,16 @@
             <systemPath>${project.basedir}/lib/buildvu.jar</systemPath>
         </dependency>
     </dependencies>
-    
+
     <build>
+        <extensions>
+            <!-- Enabling the use of SSH -->
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ssh-external</artifactId>
+                <version>2.12</version>
+            </extension>
+        </extensions>
         <finalName>buildvu-microservice</finalName>
         <plugins>
             <plugin>
