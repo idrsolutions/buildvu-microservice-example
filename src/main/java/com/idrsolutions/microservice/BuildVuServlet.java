@@ -20,6 +20,7 @@
  */
 package com.idrsolutions.microservice;
 
+import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.render.output.IDRViewerOptions;
@@ -45,6 +46,14 @@ import java.util.logging.Logger;
 public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
+
+    private static final String[] validTextModeOptions = {
+            "svg_realtext",
+            "svg_shapetext_selectable",
+            "svg_shapetext_nonselectable",
+            "image_realtext",
+            "image_shapetext_selectable",
+            "image_shapetext_nonselectable"};
 
     /**
      * Converts given pdf file or office document to html or svg using BuildVu-HTML
@@ -148,6 +157,25 @@ public class BuildVuServlet extends BaseServlet {
                 individual.doError(1100); // Internal error
                 break;
         }
+    }
+
+    @Override
+    protected SettingsValidator validateSettings(final String[] conversionParams) {
+        final SettingsValidator settingsValidator = new SettingsValidator(conversionParams);
+
+        settingsValidator.validateString("org.jpedal.pdf2html.textMode", validTextModeOptions, false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.compressSVG", false);
+        settingsValidator.validateFloat("org.jpedal.pdf2html.scaling", new float[]{0.1f, 10}, false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.embedImagesAsBase64Stream", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.convertSpacesToNbsp", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.convertPDFExternalFileToOutputType", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.keepGlyfsSeparate", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.separateTextToWords", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.compressImages", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.useLegacyImageFileType", false);
+        settingsValidator.validateFloat("org.jpedal.pdf2html.imageScale", new float[]{1, 10}, false);
+
+        return settingsValidator;
     }
 
     /**
