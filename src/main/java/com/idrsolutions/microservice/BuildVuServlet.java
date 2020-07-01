@@ -165,7 +165,6 @@ public class BuildVuServlet extends BaseServlet {
 
         settingsValidator.validateString("org.jpedal.pdf2html.textMode", validTextModeOptions, false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.compressSVG", false);
-        settingsValidator.validateFloat("org.jpedal.pdf2html.scaling", new float[]{0.1f, 10}, false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.embedImagesAsBase64Stream", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.convertSpacesToNbsp", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.convertPDFExternalFileToOutputType", false);
@@ -174,7 +173,29 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateBoolean("org.jpedal.pdf2html.compressImages", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.useLegacyImageFileType", false);
         settingsValidator.validateFloat("org.jpedal.pdf2html.imageScale", new float[]{1, 10}, false);
+        settingsValidator.validateString("org.jpedal.pdf2html.includedFonts", new String[]{"woff", "otf", "woff_base64", "otf_base64"}, false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.disableComments", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.realPageRange", "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)*", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.logicalPageRange", "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)*", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.scaling", "(\\d+\\.\\d+)|(\\d+x\\d+)|(fitWidth\\d+)|(fitHeight\\d+)|(\\d+)", false);
 
+        final String content = settingsValidator.validateString("org.jpedal.pdf2html.viewMode", new String[]{"content"}, false);
+
+        //Universal for all view mdoes
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.generateSearchFile", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.outputThumbnails", false);
+
+        if (content == null) {
+            //IDRViewer only
+            settingsValidator.validateString("org.jpedal.pdf2html.viewerUI", new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
+
+        } else {
+            //Content only
+            settingsValidator.validateBoolean("org.jpedal.pdf2html.completeDocument", false);
+            settingsValidator.validateString("org.jpedal.pdf2html.viewerUI", new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
+            settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
+
+        }
         return settingsValidator;
     }
 
