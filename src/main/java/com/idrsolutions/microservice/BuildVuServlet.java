@@ -160,7 +160,9 @@ public class BuildVuServlet extends BaseServlet {
     }
 
     @Override
-    protected SettingsValidator validateSettings(final String[] conversionParams) {
+    protected SettingsValidator validateSettings(final String settings) {
+        final String[] conversionParams = settings != null ? getConversionParams(settings) : null;
+
         final SettingsValidator settingsValidator = new SettingsValidator(conversionParams);
 
         settingsValidator.validateString("org.jpedal.pdf2html.textMode", validTextModeOptions, false);
@@ -196,6 +198,7 @@ public class BuildVuServlet extends BaseServlet {
             settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
 
         }
+
         return settingsValidator;
     }
 
