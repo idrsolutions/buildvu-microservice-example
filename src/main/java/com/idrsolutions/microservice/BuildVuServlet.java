@@ -148,13 +148,13 @@ public class BuildVuServlet extends BaseServlet {
     private void setErrorCode(final Individual individual, final int errorCode) {
         switch (errorCode) {
             case 1:
-                individual.doError(1050); // Libreoffice killed after 1 minute
+                individual.doError(1050, "Libreoffice timed out after 1 minute"); // Libreoffice killed after 1 minute
                 break;
             case 2:
-                individual.doError(1070); // Internal error
+                individual.doError(1070, "Internal error processing file"); // Internal error
                 break;
             default:
-                individual.doError(1100); // Internal error
+                individual.doError(1100, "An internal error has occured"); // Internal error
                 break;
         }
     }
