@@ -46,17 +46,7 @@ Tutorials for cloud platforms coming soon...
 
 ### docker-compose deployment: ###
 
-```
-docker-compose up
-```
-
-Visiting `localhost:8080` will bring you to the Tomcat page. 
-Click "Manager App" and log in with the following credentials: User - admin, Password - admin123.
-These credentials can be changed in ./lib/tomcat-users.xml in this repository prior to starting the container.
-
-In the list of applications, you will see the "/microservice-example" row at the bottom. In the "Commands" column, click "Start" if it is not already selected.
-
-Upon first conversion, the output may not be visible. To fix this, stop the container and restart it again using `docker-compose up` as described previously.
+Docker usage has moved to it's own project [here](https://github.com/idrsolutions/buildvu-docker).
 
 -----
 
@@ -78,7 +68,7 @@ Got questions? You can contact us [here](https://idrsolutions.zendesk.com/hc/en-
 
 -----
 
-Copyright 2018 IDRsolutions
+Copyright 2020 IDRsolutions
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
