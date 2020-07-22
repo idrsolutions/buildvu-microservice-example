@@ -180,24 +180,13 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateString("org.jpedal.pdf2html.realPageRange", "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
         settingsValidator.validateString("org.jpedal.pdf2html.logicalPageRange", "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
         settingsValidator.validateString("org.jpedal.pdf2html.scaling", "(\\d+\\.\\d+)|(\\d+x\\d+)|(fitWidth\\d+)|(fitHeight\\d+)|(\\d+)", false);
-
-        final String content = settingsValidator.validateString("org.jpedal.pdf2html.viewMode", new String[]{"content"}, false);
-
-        //Universal for all view mdoes
+        settingsValidator.validateString("org.jpedal.pdf2html.viewMode", new String[]{"content"}, false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.completeDocument", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.viewerUI", new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
+        settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.generateSearchFile", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.outputThumbnails", false);
 
-        if (content == null) {
-            //IDRViewer only
-            settingsValidator.validateString("org.jpedal.pdf2html.viewerUI", new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
-
-        } else {
-            //Content only
-            settingsValidator.validateBoolean("org.jpedal.pdf2html.completeDocument", false);
-            settingsValidator.validateString("org.jpedal.pdf2html.viewerUI", new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
-            settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
-
-        }
 
         return settingsValidator;
     }
