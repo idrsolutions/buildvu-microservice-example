@@ -90,7 +90,6 @@ public class BuildVuServlet extends BaseServlet {
         if (!isPDF) {
             final int result = convertToPDF(inputFile);
             if (result != 0) {
-                individual.setState("error");
                 setErrorCode(individual, result);
                 return;
             }
@@ -133,7 +132,7 @@ public class BuildVuServlet extends BaseServlet {
 
         } catch (final Exception ex) {
             LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
-            individual.setState("error");
+            individual.doError(1220, "error occurred whilst converting the file");
         }
     }
 
@@ -154,7 +153,7 @@ public class BuildVuServlet extends BaseServlet {
                 individual.doError(1070, "Internal error processing file"); // Internal error
                 break;
             default:
-                individual.doError(1100, "An internal error has occured"); // Internal error
+                individual.doError(1100, "An internal error has occurred"); // Internal error
                 break;
         }
     }

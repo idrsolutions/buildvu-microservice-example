@@ -126,9 +126,13 @@ Check the status of a conversion.
 
 **Internal Error Codes**
 * 1050: libre office timeout
+* 1060: invalid file
 * 1070: process error
+* 1080: configuration error
 * 1100: other
 * 1200: could not get file from url
+* 1210: file exceeds file size limit
+* 1220: error occurred whilst converting the file
 
 **GET Error Response(s):**
 * **Code** = 404
