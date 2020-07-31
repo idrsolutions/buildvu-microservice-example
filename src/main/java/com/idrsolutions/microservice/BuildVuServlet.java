@@ -76,7 +76,8 @@ public class BuildVuServlet extends BaseServlet {
                            File inputFile, File outputDir, String contextUrl) {
 
         final String[] settings = params.get("settings");
-        final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null;
+        final Map<String, String> conversionParams = settings != null ? parseConversionParams(settings[0]) : new HashMap<>();
+
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
         final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf("."));
@@ -104,20 +105,9 @@ public class BuildVuServlet extends BaseServlet {
         individual.setState("processing");
 
         try {
-            final HashMap<String, String> paramMap = new HashMap<>();
-            if (conversionParams != null) { //handle string based parameters
-                if (conversionParams.length % 2 == 0) {
-                    for (int z = 0; z < conversionParams.length; z = z + 2) {
-                        paramMap.put(conversionParams[z], conversionParams[z + 1]);
-                    }
-                } else {
-                    throw new Exception("Invalid length of String arguments");
-                }
-            }
-
             final File inFile = new File(userPdfFilePath);
 
-            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, paramMap, new IDRViewerOptions());
+            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, new IDRViewerOptions());
             converter.convert();
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
@@ -160,9 +150,9 @@ public class BuildVuServlet extends BaseServlet {
 
     @Override
     protected SettingsValidator validateSettings(final String settings) {
-        final String[] conversionParams = settings != null ? getConversionParams(settings) : null;
+        final Map<String, String> convParams = settings != null ? parseConversionParams(settings) : new HashMap<>();
 
-        final SettingsValidator settingsValidator = new SettingsValidator(conversionParams);
+        final SettingsValidator settingsValidator = new SettingsValidator(convParams);
 
         settingsValidator.validateString("org.jpedal.pdf2html.textMode", validTextModeOptions, false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.compressSVG", false);
