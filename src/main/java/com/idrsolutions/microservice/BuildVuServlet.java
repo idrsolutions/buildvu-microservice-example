@@ -25,8 +25,11 @@ import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.render.output.IDRViewerOptions;
 
+import javax.json.stream.JsonParsingException;
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -38,7 +41,7 @@ import java.util.logging.Logger;
 /**
  * Provides an API to use BuildVu on its own dedicated app server. See the API
  * documentation for more information on how to interact with this servlet.
- * 
+ *
  * @see BaseServlet
  */
 @WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
@@ -64,7 +67,7 @@ public class BuildVuServlet extends BaseServlet {
      * <p>
      * See API docs for information on how this method communicates via the
      * individual object to the client.
-     * 
+     *
      * @param individual The individual object associated with this conversion
      * @param params The map of parameters that came with the request
      * @param inputFile The input file
@@ -84,7 +87,7 @@ public class BuildVuServlet extends BaseServlet {
         // To avoid repeated calls to getParent() and getAbsolutePath()
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
-        
+
         final String userPdfFilePath;
 
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
@@ -111,7 +114,7 @@ public class BuildVuServlet extends BaseServlet {
             converter.convert();
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
-                                outputDirStr + "/" + fileNameWithoutExt + ".zip");
+                    outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
             final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
 
@@ -148,9 +151,32 @@ public class BuildVuServlet extends BaseServlet {
         }
     }
 
+    /**
+     * Validates the settings parameter passed to the request. It will parse the conversionParams,
+     * validate them, and then set the params in the Individual object.
+     *
+     * If settings are not parsed or validated, doError will be called.
+     *
+     * @param request the request for this conversion
+     * @param response the response object for the request
+     * @param individual the individual belonging to this conversion
+     * @return true if the settings are parsed and validated successfully, false if not
+     */
     @Override
-    protected SettingsValidator validateSettings(final String settings) {
-        final Map<String, String> convParams = settings != null ? parseConversionParams(settings) : new HashMap<>();
+    protected boolean validateRequest(final HttpServletRequest request, final HttpServletResponse response,
+                                      final Individual individual) {
+
+        final String settings = request.getParameter("settings");
+        Map<String, String> convParams = null;
+
+        if (settings != null) {
+            try {
+                convParams = parseConversionParams(settings);
+            } catch (JsonParsingException exception) {
+                doError(request, response, "Error encountered when parsing settings JSON <" + exception.getMessage() + ">", 400);
+                return false;
+            }
+        }
 
         final SettingsValidator settingsValidator = new SettingsValidator(convParams);
 
@@ -164,20 +190,31 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateBoolean("org.jpedal.pdf2html.compressImages", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.useLegacyImageFileType", false);
         settingsValidator.validateFloat("org.jpedal.pdf2html.imageScale", new float[]{1, 10}, false);
-        settingsValidator.validateString("org.jpedal.pdf2html.includedFonts", new String[]{"woff", "otf", "woff_base64", "otf_base64"}, false);
+        settingsValidator.validateString("org.jpedal.pdf2html.includedFonts",
+                new String[]{"woff", "otf", "woff_base64", "otf_base64"}, false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.disableComments", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.realPageRange", "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.logicalPageRange", "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.scaling", "(\\d+\\.\\d+)|(\\d+x\\d+)|(fitWidth\\d+)|(fitHeight\\d+)|(\\d+)", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.realPageRange",
+                "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.logicalPageRange",
+                "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.scaling",
+                "(\\d+\\.\\d+)|(\\d+x\\d+)|(fitWidth\\d+)|(fitHeight\\d+)|(\\d+)", false);
         settingsValidator.validateString("org.jpedal.pdf2html.viewMode", new String[]{"content"}, false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.completeDocument", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.viewerUI", new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
+        settingsValidator.validateString("org.jpedal.pdf2html.viewerUI",
+                new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
         settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.generateSearchFile", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.outputThumbnails", false);
 
+        if (!settingsValidator.isValid()) {
+            doError(request, response, "Invalid settings detected.\n" + settingsValidator.getMessage(), 400);
+            return false;
+        }
 
-        return settingsValidator;
+        individual.setConversionParams(convParams);
+
+        return true;
     }
 
     /**
