@@ -78,8 +78,8 @@ public class BuildVuServlet extends BaseServlet {
     protected void convert(Individual individual, Map<String, String[]> params,
                            File inputFile, File outputDir, String contextUrl) {
 
-        final String[] settings = params.get("settings");
-        final Map<String, String> conversionParams = settings != null ? parseConversionParams(settings[0]) : new HashMap<>();
+        final Map<String, String> conversionParams = individual.getConversionParams() != null
+                ? individual.getConversionParams() : new HashMap<>();
 
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
