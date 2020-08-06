@@ -78,8 +78,8 @@ public class BuildVuServlet extends BaseServlet {
     protected void convert(Individual individual, Map<String, String[]> params,
                            File inputFile, File outputDir, String contextUrl) {
 
-        final Map<String, String> conversionParams = individual.getConversionParams() != null
-                ? individual.getConversionParams() : new HashMap<>();
+        final Map<String, String> conversionParams = individual.getSettings() != null
+                ? individual.getSettings() : new HashMap<>();
 
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
@@ -92,9 +92,7 @@ public class BuildVuServlet extends BaseServlet {
 
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            final int result = convertToPDF(inputFile);
-            if (result != 0) {
-                setErrorCode(individual, result);
+            if (!convertToPDF(inputFile, individual)) {
                 return;
             }
             userPdfFilePath = inputDir + "/" + fileNameWithoutExt + ".pdf";
@@ -130,28 +128,6 @@ public class BuildVuServlet extends BaseServlet {
     }
 
     /**
-     * Set the error code in the given individual object. Error codes are based
-     * on the return values of 
-     * {@link BuildVuServlet#convertToPDF(File)}
-     *
-     * @param individual the individual object associated with this conversion
-     * @param errorCode The return code to be parsed to an error code
-     */
-    private void setErrorCode(final Individual individual, final int errorCode) {
-        switch (errorCode) {
-            case 1:
-                individual.doError(1050, "Libreoffice timed out after 1 minute"); // Libreoffice killed after 1 minute
-                break;
-            case 2:
-                individual.doError(1070, "Internal error processing file"); // Internal error
-                break;
-            default:
-                individual.doError(1100, "An internal error has occurred"); // Internal error
-                break;
-        }
-    }
-
-    /**
      * Validates the settings parameter passed to the request. It will parse the conversionParams,
      * validate them, and then set the params in the Individual object.
      *
@@ -166,19 +142,15 @@ public class BuildVuServlet extends BaseServlet {
     protected boolean validateRequest(final HttpServletRequest request, final HttpServletResponse response,
                                       final Individual individual) {
 
-        final String settings = request.getParameter("settings");
-        Map<String, String> convParams = null;
-
-        if (settings != null) {
-            try {
-                convParams = parseConversionParams(settings);
-            } catch (JsonParsingException exception) {
-                doError(request, response, "Error encountered when parsing settings JSON <" + exception.getMessage() + ">", 400);
-                return false;
-            }
+        final Map<String, String> settings;
+        try {
+            settings = parseSettings(request.getParameter("settings"));
+        } catch (JsonParsingException exception) {
+            doError(request, response, "Error encountered when parsing settings JSON <" + exception.getMessage() + '>', 400);
+            return false;
         }
 
-        final SettingsValidator settingsValidator = new SettingsValidator(convParams);
+        final SettingsValidator settingsValidator = new SettingsValidator(settings);
 
         settingsValidator.validateString("org.jpedal.pdf2html.textMode", validTextModeOptions, false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.compressSVG", false);
@@ -212,7 +184,7 @@ public class BuildVuServlet extends BaseServlet {
             return false;
         }
 
-        individual.setConversionParams(convParams);
+        individual.setSettings(settings);
 
         return true;
     }
@@ -221,10 +193,11 @@ public class BuildVuServlet extends BaseServlet {
      * Converts an office file to PDF using LibreOffice.
      *
      * @param file The office file to convert to PDF
-     * @return 0 if success, 1 if libreoffice timed out, 2 if process error
+     * @param individual The Individual on which to set the error if one occurs
+     * @return true on success, false on failure
      * occurs
      */
-    private static int convertToPDF(final File file) {
+    private static boolean convertToPDF(final File file, final Individual individual) {
         final ProcessBuilder pb = new ProcessBuilder("soffice", "--headless", "--convert-to", "pdf", file.getName());
         pb.directory(new File(file.getParent()));
         final Process process;
@@ -233,13 +206,15 @@ public class BuildVuServlet extends BaseServlet {
             process = pb.start();
             if (!process.waitFor(1, TimeUnit.MINUTES)) {
                 process.destroy();
-                return 1;
+                individual.doError(1050, "Libreoffice timed out after 1 minute");
+                return false;
             }
         } catch (final IOException | InterruptedException e) {
             e.printStackTrace(); // soffice location may need to be added to the path
             LOG.severe(e.getMessage());
-            return 2;
+            individual.doError(1070, "Internal error processing file");
+            return false;
         }
-        return 0;
+        return true;
     }
 }
