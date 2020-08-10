@@ -23,6 +23,7 @@ package com.idrsolutions.microservice;
 import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
+import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.IDRViewerOptions;
 
 import javax.json.stream.JsonParsingException;
@@ -121,6 +122,9 @@ public class BuildVuServlet extends BaseServlet {
 
             individual.setState("processed");
 
+        } catch (final PdfException ex) {
+            LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
+            individual.doError(1220, ex.getMessage());
         } catch (final Exception ex) {
             LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
             individual.doError(1220, "error occurred whilst converting the file");
