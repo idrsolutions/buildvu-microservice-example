@@ -20,12 +20,17 @@
  */
 package com.idrsolutions.microservice;
 
+import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
+import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.IDRViewerOptions;
 
+import javax.json.stream.JsonParsingException;
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -37,7 +42,7 @@ import java.util.logging.Logger;
 /**
  * Provides an API to use BuildVu on its own dedicated app server. See the API
  * documentation for more information on how to interact with this servlet.
- * 
+ *
  * @see BaseServlet
  */
 @WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
@@ -45,6 +50,14 @@ import java.util.logging.Logger;
 public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
+
+    private static final String[] validTextModeOptions = {
+            "svg_realtext",
+            "svg_shapetext_selectable",
+            "svg_shapetext_nonselectable",
+            "image_realtext",
+            "image_shapetext_selectable",
+            "image_shapetext_nonselectable"};
 
     /**
      * Converts given pdf file or office document to html or svg using BuildVu-HTML
@@ -55,7 +68,7 @@ public class BuildVuServlet extends BaseServlet {
      * <p>
      * See API docs for information on how this method communicates via the
      * individual object to the client.
-     * 
+     *
      * @param individual The individual object associated with this conversion
      * @param params The map of parameters that came with the request
      * @param inputFile The input file
@@ -66,23 +79,21 @@ public class BuildVuServlet extends BaseServlet {
     protected void convert(Individual individual, Map<String, String[]> params,
                            File inputFile, File outputDir, String contextUrl) {
 
-        final String[] settings = params.get("settings");
-        final String[] conversionParams = settings != null ? getConversionParams(settings[0]) : null;
+        final Map<String, String> conversionParams = individual.getSettings() != null
+                ? individual.getSettings() : new HashMap<>();
+
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
         final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf("."));
         // To avoid repeated calls to getParent() and getAbsolutePath()
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
-        
+
         final String userPdfFilePath;
 
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            final int result = convertToPDF(inputFile);
-            if (result != 0) {
-                individual.setState("error");
-                setErrorCode(individual, result);
+            if (!convertToPDF(inputFile, individual)) {
                 return;
             }
             userPdfFilePath = inputDir + "/" + fileNameWithoutExt + ".pdf";
@@ -96,24 +107,13 @@ public class BuildVuServlet extends BaseServlet {
         individual.setState("processing");
 
         try {
-            final HashMap<String, String> paramMap = new HashMap<>();
-            if (conversionParams != null) { //handle string based parameters
-                if (conversionParams.length % 2 == 0) {
-                    for (int z = 0; z < conversionParams.length; z = z + 2) {
-                        paramMap.put(conversionParams[z], conversionParams[z + 1]);
-                    }
-                } else {
-                    throw new Exception("Invalid length of String arguments");
-                }
-            }
-
             final File inFile = new File(userPdfFilePath);
 
-            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, paramMap, new IDRViewerOptions());
+            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, new IDRViewerOptions());
             converter.convert();
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
-                                outputDirStr + "/" + fileNameWithoutExt + ".zip");
+                    outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
             final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
 
@@ -122,42 +122,86 @@ public class BuildVuServlet extends BaseServlet {
 
             individual.setState("processed");
 
+        } catch (final PdfException ex) {
+            LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
+            individual.doError(1220, ex.getMessage());
         } catch (final Exception ex) {
             LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
-            individual.setState("error");
+            individual.doError(1220, "error occurred whilst converting the file");
         }
     }
 
     /**
-     * Set the error code in the given individual object. Error codes are based
-     * on the return values of 
-     * {@link BuildVuServlet#convertToPDF(File)}
+     * Validates the settings parameter passed to the request. It will parse the conversionParams,
+     * validate them, and then set the params in the Individual object.
      *
-     * @param individual the individual object associated with this conversion
-     * @param errorCode The return code to be parsed to an error code
+     * If settings are not parsed or validated, doError will be called.
+     *
+     * @param request the request for this conversion
+     * @param response the response object for the request
+     * @param individual the individual belonging to this conversion
+     * @return true if the settings are parsed and validated successfully, false if not
      */
-    private void setErrorCode(final Individual individual, final int errorCode) {
-        switch (errorCode) {
-            case 1:
-                individual.doError(1050); // Libreoffice killed after 1 minute
-                break;
-            case 2:
-                individual.doError(1070); // Internal error
-                break;
-            default:
-                individual.doError(1100); // Internal error
-                break;
+    @Override
+    protected boolean validateRequest(final HttpServletRequest request, final HttpServletResponse response,
+                                      final Individual individual) {
+
+        final Map<String, String> settings;
+        try {
+            settings = parseSettings(request.getParameter("settings"));
+        } catch (JsonParsingException exception) {
+            doError(request, response, "Error encountered when parsing settings JSON <" + exception.getMessage() + '>', 400);
+            return false;
         }
+
+        final SettingsValidator settingsValidator = new SettingsValidator(settings);
+
+        settingsValidator.validateString("org.jpedal.pdf2html.textMode", validTextModeOptions, false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.compressSVG", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.embedImagesAsBase64Stream", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.convertSpacesToNbsp", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.convertPDFExternalFileToOutputType", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.keepGlyfsSeparate", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.separateTextToWords", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.compressImages", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.useLegacyImageFileType", false);
+        settingsValidator.validateFloat("org.jpedal.pdf2html.imageScale", new float[]{1, 10}, false);
+        settingsValidator.validateString("org.jpedal.pdf2html.includedFonts",
+                new String[]{"woff", "otf", "woff_base64", "otf_base64"}, false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.disableComments", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.realPageRange",
+                "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.logicalPageRange",
+                "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.scaling",
+                "(\\d+\\.\\d+)|(\\d+x\\d+)|(fitWidth\\d+)|(fitHeight\\d+)|(\\d+)", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.viewMode", new String[]{"content"}, false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.completeDocument", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.viewerUI",
+                new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
+        settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.generateSearchFile", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.outputThumbnails", false);
+
+        if (!settingsValidator.isValid()) {
+            doError(request, response, "Invalid settings detected.\n" + settingsValidator.getMessage(), 400);
+            return false;
+        }
+
+        individual.setSettings(settings);
+
+        return true;
     }
 
     /**
      * Converts an office file to PDF using LibreOffice.
      *
      * @param file The office file to convert to PDF
-     * @return 0 if success, 1 if libreoffice timed out, 2 if process error
+     * @param individual The Individual on which to set the error if one occurs
+     * @return true on success, false on failure
      * occurs
      */
-    private static int convertToPDF(final File file) {
+    private static boolean convertToPDF(final File file, final Individual individual) {
         final ProcessBuilder pb = new ProcessBuilder("soffice", "--headless", "--convert-to", "pdf", file.getName());
         pb.directory(new File(file.getParent()));
         final Process process;
@@ -166,13 +210,15 @@ public class BuildVuServlet extends BaseServlet {
             process = pb.start();
             if (!process.waitFor(1, TimeUnit.MINUTES)) {
                 process.destroy();
-                return 1;
+                individual.doError(1050, "Libreoffice timed out after 1 minute");
+                return false;
             }
         } catch (final IOException | InterruptedException e) {
             e.printStackTrace(); // soffice location may need to be added to the path
             LOG.severe(e.getMessage());
-            return 2;
+            individual.doError(1070, "Internal error processing file");
+            return false;
         }
-        return 0;
+        return true;
     }
 }
