@@ -40,7 +40,7 @@ This will generate the buildvu.war file inside the /target directory.
 
 ### Deployment: ###
 
-See our [application server tutorials](https://support.idrsolutions.com/hc/en-us/sections/360000444652-Deploy-BuildVu-to-an-app-server) for instructions on deployment.
+See our [application server tutorials](https://docs.idrsolutions.com/buildvu/app-server-deployment/) for instructions on deployment.
 
 Tutorials for cloud platforms coming soon... 
 
