@@ -15,11 +15,7 @@ IDRsolutions' BuildVu Microservice Example is an open source project that allows
 
 ### Trial Version: ###
 
-If you do not have a full verison of BuildVu you can get the trial version from [here](https://www.idrsolutions.com/buildvu/trial-download/). This can then be used with the following languages:
-
-[C#](https://github.com/idrsolutions/BuildVuCSharpClient), [JavaScript](https://github.com/idrsolutions/buildvu-js-client), [Node.js](https://github.com/idrsolutions/buildvu-nodejs-client), [PHP](https://github.com/idrsolutions/buildvu-php-client), [Ruby](https://github.com/idrsolutions/buildvu-ruby-client), [Python](https://github.com/idrsolutions/buildvu-python-client)
-
-please follow instructions on relevant pages on how to do this.
+If you do not have a full verison of BuildVu you can get the trial version from [here](https://www.idrsolutions.com/buildvu/trial-download/).
 
 ### Build: ###
 
@@ -56,7 +52,7 @@ You can interact with the BuildVu Microservice Example using the REST API.
 
 A complete list of raw requests that can be used can be found [here](/API.md).
 
-For specific languages, see our tutorials on how to [run BuildVu from other languages](https://support.idrsolutions.com/hc/en-us/sections/360000451031-Run-BuildVu-from-other-languages).
+For specific languages, see our tutorials on how to [run BuildVu from other languages](https://docs.idrsolutions.com/buildvu/languages/).
 
 -----
 
