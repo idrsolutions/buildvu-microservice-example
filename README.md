@@ -42,7 +42,7 @@ This will generate the buildvu.war file inside the /target directory.
 
 See our [application server tutorials](https://docs.idrsolutions.com/buildvu/app-server-deployment/) for instructions on deployment.
 
-Tutorials for cloud platforms coming soon... 
+See our [cloud platform tutorials](https://docs.idrsolutions.com/buildvu/docker-deployment/) for instructions on cloud deployment.
 
 ### docker-compose deployment: ###
 
