@@ -214,7 +214,7 @@ public class BuildVuServlet extends BaseServlet {
         final String uuid = individual.getUuid();
         final String uniqueLOProfile = TEMP_DIR + "LO-" + uuid;
 
-        final ProcessBuilder pb = new ProcessBuilder("/opt/libreoffice6.4/program/soffice",
+        final ProcessBuilder pb = new ProcessBuilder("soffice",
                 "-env:UserInstallation=file://" + uniqueLOProfile,
                 "--headless", "--convert-to", "pdf", file.getName());
 
