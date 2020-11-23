@@ -24,7 +24,9 @@ import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.exception.PdfException;
+import org.jpedal.render.output.ContentOptions;
 import org.jpedal.render.output.IDRViewerOptions;
+import org.jpedal.render.output.OutputModeOptions;
 
 import javax.json.stream.JsonParsingException;
 import javax.servlet.annotation.MultipartConfig;
@@ -107,9 +109,13 @@ public class BuildVuServlet extends BaseServlet {
         individual.setState("processing");
 
         try {
+            final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
+
+            final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
+
             final File inFile = new File(userPdfFilePath);
 
-            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, new IDRViewerOptions());
+            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, outputModeOptions);
             converter.convert();
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
@@ -117,7 +123,9 @@ public class BuildVuServlet extends BaseServlet {
 
             final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
 
-            individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+            if (!isContentMode) {
+                individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+            }
             individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
 
             individual.setState("processed");
@@ -182,6 +190,7 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.generateSearchFile", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.outputThumbnails", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.svgMode", false);
 
         if (!settingsValidator.isValid()) {
             doError(request, response, "Invalid settings detected.\n" + settingsValidator.getMessage(), 400);
@@ -202,12 +211,17 @@ public class BuildVuServlet extends BaseServlet {
      * occurs
      */
     private static boolean convertToPDF(final File file, final Individual individual) {
-        final ProcessBuilder pb = new ProcessBuilder("soffice", "--headless", "--convert-to", "pdf", file.getName());
+        final String uuid = individual.getUuid();
+        final String uniqueLOProfile = TEMP_DIR + "LO-" + uuid;
+
+        final ProcessBuilder pb = new ProcessBuilder("soffice",
+                "-env:UserInstallation=file://" + uniqueLOProfile,
+                "--headless", "--convert-to", "pdf", file.getName());
+
         pb.directory(new File(file.getParent()));
-        final Process process;
 
         try {
-            process = pb.start();
+            final Process process = pb.start();
             if (!process.waitFor(1, TimeUnit.MINUTES)) {
                 process.destroy();
                 individual.doError(1050, "Libreoffice timed out after 1 minute");
@@ -218,6 +232,8 @@ public class BuildVuServlet extends BaseServlet {
             LOG.severe(e.getMessage());
             individual.doError(1070, "Internal error processing file");
             return false;
+        } finally {
+            deleteFolder(new File(uniqueLOProfile));
         }
         return true;
     }
