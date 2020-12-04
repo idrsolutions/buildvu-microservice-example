@@ -182,6 +182,7 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.generateSearchFile", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.outputThumbnails", false);
+        settingsValidator.validateString("org.jpedal.pdf2html.password", ".*", false);
 
         if (!settingsValidator.isValid()) {
             doError(request, response, "Invalid settings detected.\n" + settingsValidator.getMessage(), 400);
