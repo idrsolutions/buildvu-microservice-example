@@ -168,7 +168,6 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateBoolean("org.jpedal.pdf2html.compressSVG", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.embedImagesAsBase64Stream", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.convertSpacesToNbsp", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.convertPDFExternalFileToOutputType", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.keepGlyfsSeparate", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.separateTextToWords", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.compressImages", false);
