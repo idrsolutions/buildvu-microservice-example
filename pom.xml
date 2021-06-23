@@ -6,7 +6,7 @@
     <groupId>com.idrsolutions</groupId>
     <artifactId>buildvu-microservice-example</artifactId>
     <packaging>war</packaging>
-    <version>5.0.2</version>
+    <version>5.0.3</version>
     <name>BuildVu Microservice Example</name>
 
     <dependencies>
