@@ -22,6 +22,7 @@ package com.idrsolutions.microservice;
 
 import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
+import com.sun.tools.sjavac.Log;
 import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.ContentOptions;
@@ -92,15 +93,22 @@ public class BuildVuServlet extends BaseServlet {
         final String outputDirStr = outputDir.getAbsolutePath();
 
         final String userPdfFilePath;
-
+        final File inFile;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
             if (!convertToPDF(inputFile, individual)) {
                 return;
             }
             userPdfFilePath = inputDir + "/" + fileNameWithoutExt + ".pdf";
+            inFile = new File(userPdfFilePath);
+            if (!inFile.exists()) {
+                LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inFile.getAbsolutePath());
+                individual.doError(1080, "Error processing PDF");
+                return;
+            }
         } else {
             userPdfFilePath = inputDir + "/" + fileName;
+            inFile = new File(userPdfFilePath);
         }
 
         //Makes the directory for the output file
@@ -112,8 +120,6 @@ public class BuildVuServlet extends BaseServlet {
             final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
 
             final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
-
-            final File inFile = new File(userPdfFilePath);
 
             final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, outputModeOptions);
             converter.convert();
