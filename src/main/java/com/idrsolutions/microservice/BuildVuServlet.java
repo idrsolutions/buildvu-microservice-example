@@ -22,7 +22,6 @@ package com.idrsolutions.microservice;
 
 import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
-import com.sun.tools.sjavac.Log;
 import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.ContentOptions;
