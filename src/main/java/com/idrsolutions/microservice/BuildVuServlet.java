@@ -96,18 +96,18 @@ public class BuildVuServlet extends BaseServlet {
             if (!convertToPDF(inputFile, individual)) {
                 return;
             }
-            inputPdf = new File(inputDir + "/" + fileNameWithoutExt + ".pdf");
+            inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
             if (!inputPdf.exists()) {
                 LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
                 individual.doError(1080, "Error processing PDF");
                 return;
             }
         } else {
-            inputPdf = new File(inputDir + "/" + fileName);
+            inputPdf = new File(inputDir, fileName);
         }
 
         //Makes the directory for the output file
-        new File(outputDirStr + "/" + fileNameWithoutExt).mkdirs();
+        new File(outputDirStr, fileNameWithoutExt).mkdirs();
 
         individual.setState("processing");
 
