@@ -23,7 +23,6 @@ package com.idrsolutions.microservice;
 import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
-import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.ContentOptions;
 import org.jpedal.render.output.IDRViewerOptions;
 import org.jpedal.render.output.OutputModeOptions;
@@ -91,23 +90,20 @@ public class BuildVuServlet extends BaseServlet {
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
 
-        final String userPdfFilePath;
-        final File inFile;
+        final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
             if (!convertToPDF(inputFile, individual)) {
                 return;
             }
-            userPdfFilePath = inputDir + "/" + fileNameWithoutExt + ".pdf";
-            inFile = new File(userPdfFilePath);
-            if (!inFile.exists()) {
-                LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inFile.getAbsolutePath());
+            inputPdf = new File(inputDir + "/" + fileNameWithoutExt + ".pdf");
+            if (!inputPdf.exists()) {
+                LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
                 individual.doError(1080, "Error processing PDF");
                 return;
             }
         } else {
-            userPdfFilePath = inputDir + "/" + fileName;
-            inFile = new File(userPdfFilePath);
+            inputPdf = new File(inputDir + "/" + fileName);
         }
 
         //Makes the directory for the output file
@@ -120,7 +116,7 @@ public class BuildVuServlet extends BaseServlet {
 
             final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
 
-            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, outputModeOptions);
+            final BuildVuConverter converter = new BuildVuConverter(inputPdf, outputDir, conversionParams, outputModeOptions);
             converter.convert();
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
