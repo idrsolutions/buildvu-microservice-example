@@ -23,7 +23,6 @@ package com.idrsolutions.microservice;
 import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
-import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.ContentOptions;
 import org.jpedal.render.output.IDRViewerOptions;
 import org.jpedal.render.output.OutputModeOptions;
@@ -91,20 +90,24 @@ public class BuildVuServlet extends BaseServlet {
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
 
-        final String userPdfFilePath;
-
+        final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
             if (!convertToPDF(inputFile, individual)) {
                 return;
             }
-            userPdfFilePath = inputDir + "/" + fileNameWithoutExt + ".pdf";
+            inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
+            if (!inputPdf.exists()) {
+                LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
+                individual.doError(1080, "Error processing PDF");
+                return;
+            }
         } else {
-            userPdfFilePath = inputDir + "/" + fileName;
+            inputPdf = new File(inputDir, fileName);
         }
 
         //Makes the directory for the output file
-        new File(outputDirStr + "/" + fileNameWithoutExt).mkdirs();
+        new File(outputDirStr, fileNameWithoutExt).mkdirs();
 
         individual.setState("processing");
 
@@ -113,9 +116,7 @@ public class BuildVuServlet extends BaseServlet {
 
             final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
 
-            final File inFile = new File(userPdfFilePath);
-
-            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, outputModeOptions);
+            final BuildVuConverter converter = new BuildVuConverter(inputPdf, outputDir, conversionParams, outputModeOptions);
             converter.convert();
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
@@ -130,12 +131,9 @@ public class BuildVuServlet extends BaseServlet {
 
             individual.setState("processed");
 
-        } catch (final PdfException ex) {
-            LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
-            individual.doError(1220, ex.getMessage());
-        } catch (final Exception ex) {
-            LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
-            individual.doError(1220, "error occurred whilst converting the file");
+        } catch (final Throwable ex) {
+            LOG.log(Level.SEVERE, "Exception thrown when converting input", ex);
+            individual.doError(1220, "Exception thrown when converting input" + ex.getMessage());
         }
     }
 
