@@ -190,9 +190,10 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.generateSearchFile", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.outputThumbnails", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.svgMode", false);
         settingsValidator.validateString("org.jpedal.pdf2html.password", ".*", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.svgMode", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.inlineSVG", false);
+        settingsValidator.validateBoolean("org.jpedal.pdf2html.enableLaunchActions", false);
 
         if (!settingsValidator.isValid()) {
             doError(request, response, "Invalid settings detected.\n" + settingsValidator.getMessage(), 400);
@@ -212,7 +213,7 @@ public class BuildVuServlet extends BaseServlet {
      * @return true on success, false on failure
      * occurs
      */
-    private static boolean convertToPDF(final File file, final Individual individual) {
+    protected static boolean convertToPDF(final File file, final Individual individual) {
         final String uuid = individual.getUuid();
         final String uniqueLOProfile = TEMP_DIR + "LO-" + uuid;
 
