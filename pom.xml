@@ -5,9 +5,27 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.idrsolutions</groupId>
     <artifactId>buildvu-microservice-example</artifactId>
-    <packaging>war</packaging>
+    <packaging>${packaging.type}</packaging>
     <version>5.0.3</version>
     <name>BuildVu Microservice Example</name>
+
+    <profiles>
+        <profile>
+            <id>service</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <packaging.type>war</packaging.type>
+            </properties>
+        </profile>
+        <profile>
+            <id>dependency</id>
+            <properties>
+                <packaging.type>jar</packaging.type>
+            </properties>
+        </profile>
+    </profiles>
 
     <dependencies>
         <dependency>
