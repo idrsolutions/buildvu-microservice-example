@@ -100,6 +100,9 @@ input=download&url=http://your.domain/path/to/file.pdf
 * **Code** = 400
 * **Content** = ```{error: "Invalid settings detected. [unique-error-message]"}```
 
+* **Code** = 400
+* **Content** = ```{error: "File has no extension"}```
+
 ___
 
 
