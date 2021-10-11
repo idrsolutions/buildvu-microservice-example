@@ -118,18 +118,13 @@ public class BuildVuServlet extends BaseServlet {
             final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, outputModeOptions);
             converter.convert();
 
-            ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
-                    outputDirStr + "/" + fileNameWithoutExt + ".zip");
-
             final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
 
             if (!isContentMode) {
                 individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
             }
-            individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
 
-            individual.setState("processed");
-
+            finishConversion(individual, new File(outputDirStr + "/" + fileNameWithoutExt), fileNameWithoutExt);
         } catch (final PdfException ex) {
             LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
             individual.doError(1220, ex.getMessage());
