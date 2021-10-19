@@ -46,11 +46,17 @@ import java.util.logging.Logger;
  *
  * @see BaseServlet
  */
-@WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
+@WebServlet(name = "buildvu", urlPatterns = "/buildvu", loadOnStartup = 1)
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
+
+    static {
+        BaseServlet.setInputPath(USER_HOME + "/.idr/buildvu-microservice/input/");
+        BaseServlet.setOutputPath(USER_HOME + "/.idr/buildvu-microservice/output/");
+        FileServlet.setBasePath(USER_HOME + "/.idr/buildvu-microservice/output");
+    }
 
     private static final String[] validTextModeOptions = {
             "svg_realtext",
@@ -59,6 +65,12 @@ public class BuildVuServlet extends BaseServlet {
             "image_realtext",
             "image_shapetext_selectable",
             "image_shapetext_nonselectable"};
+
+    static {
+        final String catalinaHome = System.getProperty("catalina.home");
+        setInputPath(catalinaHome + "/../docroot/input/");
+        setOutputPath(catalinaHome + "/../docroot/output/");
+    }
 
     /**
      * Converts given pdf file or office document to html or svg using BuildVu-HTML
