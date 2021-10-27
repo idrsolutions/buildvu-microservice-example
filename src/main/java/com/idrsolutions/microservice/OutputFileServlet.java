@@ -5,7 +5,7 @@ import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import javax.servlet.annotation.WebServlet;
 
 @WebServlet("/output/*")
-public class FileServlet extends DefaultFileServlet {
+public class OutputFileServlet extends DefaultFileServlet {
 
     private static String basePath;
 
