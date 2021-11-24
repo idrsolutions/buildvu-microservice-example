@@ -98,7 +98,7 @@ public class BuildVuServlet extends BaseServlet {
         final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            if (!LibreOfficeHelper.convertToPDF(inputFile, individual)) {
+            if (!LibreOfficeHelper.convertToPDF((String) getServletContext().getAttribute("service.libreOfficePath"), inputFile, individual)) {
                 return;
             }
             inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
