@@ -102,14 +102,7 @@ public class BuildVuServlet extends BaseServlet {
             Properties properties = (Properties) getServletContext().getAttribute("properties");
 
             final String libreOfficePath = properties.getProperty("service.libreOfficePath");
-            final String libreOfficePathVaried;
-            if (libreOfficePath != null && !libreOfficePath.isEmpty()) {
-                libreOfficePathVaried = libreOfficePath;
-            } else {
-                libreOfficePathVaried ="soffice";
-                LOG.log(Level.SEVERE, "Properties value for \"service.libreOfficePath\" incorrect, should be a non empty string. Using a value of \"soffice\" based on available processors");
-            }
-            if (!LibreOfficeHelper.convertToPDF(libreOfficePathVaried, inputFile, individual)) {
+            if (!LibreOfficeHelper.convertToPDF(libreOfficePath, inputFile, individual)) {
                 return;
             }
             inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
