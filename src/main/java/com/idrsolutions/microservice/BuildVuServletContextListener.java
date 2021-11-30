@@ -36,7 +36,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
     }
 
     private static void validateConcurrentConversions(final Properties properties) {
-        String concurrentConversions = properties.getProperty("service.concurrentConversion");
+        final String concurrentConversions = properties.getProperty("service.concurrentConversion");
         if (concurrentConversions == null || concurrentConversions.isEmpty() || !concurrentConversions.matches("\\d+") || Integer.parseInt(concurrentConversions) <= 0) {
             final int availableProcessors = Runtime.getRuntime().availableProcessors();
             properties.setProperty("service.concurrentConversion", "" + availableProcessors);
@@ -47,8 +47,8 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
     }
 
     private static void validateLibreOfficePath(final Properties properties) {
-        String propertiesInputLocation = properties.getProperty("service.libreOfficePath");
-        if (propertiesInputLocation == null || propertiesInputLocation.isEmpty()) {
+        final String libreOfficePath = properties.getProperty("service.libreOfficePath");
+        if (libreOfficePath == null || libreOfficePath.isEmpty()) {
             properties.setProperty("service.libreOfficePath", "soffice");
         }
 
