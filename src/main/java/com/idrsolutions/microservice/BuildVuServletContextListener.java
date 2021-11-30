@@ -5,6 +5,7 @@ import javax.servlet.annotation.WebListener;
 @WebListener
 public class BuildVuServletContextListener extends BaseServletContextListener {
 
+    @Override
     public String getConfigPath() {
         String userDir = System.getProperty("user.home");
         if (!userDir.endsWith("/") && !userDir.endsWith("\\")) {
@@ -13,6 +14,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
         return userDir + "/.idr/buildvu-microservice/";
     }
 
+    @Override
     public String getConfigName(){
         return "buildvu-microservice.properties";
     }

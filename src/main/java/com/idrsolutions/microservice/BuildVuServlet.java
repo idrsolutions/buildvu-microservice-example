@@ -36,6 +36,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -98,7 +99,17 @@ public class BuildVuServlet extends BaseServlet {
         final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            if (!LibreOfficeHelper.convertToPDF((String) getServletContext().getAttribute("service.libreOfficePath"), inputFile, individual)) {
+            Properties properties = (Properties) getServletContext().getAttribute("properties");
+
+            final String libreOfficePath = properties.getProperty("service.libreOfficePath");
+            final String libreOfficePathVaried;
+            if (libreOfficePath != null && !libreOfficePath.isEmpty()) {
+                libreOfficePathVaried = libreOfficePath;
+            } else {
+                libreOfficePathVaried ="soffice";
+                LOG.log(Level.SEVERE, "Properties value for \"service.libreOfficePath\" incorrect, should be a non empty string. Using a value of \"soffice\" based on available processors");
+            }
+            if (!LibreOfficeHelper.convertToPDF(libreOfficePathVaried, inputFile, individual)) {
                 return;
             }
             inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
