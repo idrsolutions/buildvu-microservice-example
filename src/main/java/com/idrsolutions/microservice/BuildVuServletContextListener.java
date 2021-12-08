@@ -2,7 +2,6 @@ package com.idrsolutions.microservice;
 
 import javax.servlet.annotation.WebListener;
 import java.util.Properties;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @WebListener
@@ -35,9 +34,9 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
     }
 
     private static void validateLibreOfficePath(final Properties properties) {
-        final String libreOfficePath = properties.getProperty("service.libreOfficePath");
+        final String libreOfficePath = properties.getProperty("libreOfficePath");
         if (libreOfficePath == null || libreOfficePath.isEmpty()) {
-            properties.setProperty("service.libreOfficePath", "soffice");
+            properties.setProperty("libreOfficePath", "soffice");
         }
 
     }
