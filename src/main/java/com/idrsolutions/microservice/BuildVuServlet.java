@@ -52,12 +52,6 @@ public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
-    static {
-        setInputPath(USER_HOME + "/.idr/buildvu-microservice/input/");
-        setOutputPath(USER_HOME + "/.idr/buildvu-microservice/output/");
-        OutputFileServlet.setBasePath(USER_HOME + "/.idr/buildvu-microservice/output");
-    }
-
     private static final String[] validTextModeOptions = {
             "svg_realtext",
             "svg_shapetext_selectable",
