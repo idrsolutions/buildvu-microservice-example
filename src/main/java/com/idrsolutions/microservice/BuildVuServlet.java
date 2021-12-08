@@ -46,7 +46,7 @@ import java.util.logging.Logger;
  *
  * @see BaseServlet
  */
-@WebServlet(name = "buildvu", urlPatterns = "/buildvu", loadOnStartup = 1)
+@WebServlet(name = "buildvu", urlPatterns = "/buildvu")
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
 
