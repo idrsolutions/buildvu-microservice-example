@@ -3,6 +3,7 @@ package com.idrsolutions.microservice;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.annotation.WebListener;
 import java.util.Properties;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @WebListener
@@ -27,24 +28,22 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
     @Override
     public void contextInitialized(final ServletContextEvent servletContextEvent) {
         super.contextInitialized(servletContextEvent);
-        Properties propertiesFile = (Properties) servletContextEvent.getServletContext().getAttribute("properties");
+        final Properties propertiesFile = (Properties) servletContextEvent.getServletContext().getAttribute("properties");
         OutputFileServlet.setBasePath(propertiesFile.getProperty("outputPath"));
     }
 
     @Override
     public void validateConfigFileValues(final Properties propertiesFile) {
-
         super.validateConfigFileValues(propertiesFile);
 
-        //service.libreOfficePath
         validateLibreOfficePath(propertiesFile);
-
     }
 
     private static void validateLibreOfficePath(final Properties properties) {
         final String libreOfficePath = properties.getProperty("libreOfficePath");
         if (libreOfficePath == null || libreOfficePath.isEmpty()) {
             properties.setProperty("libreOfficePath", "soffice");
+            LOG.log(Level.WARNING, "Properties value for \"libreOfficePath\" was not set. Using a value of \"soffice\"");
         }
 
     }
