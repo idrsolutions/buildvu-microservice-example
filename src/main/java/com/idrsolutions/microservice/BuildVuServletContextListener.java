@@ -28,7 +28,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
     @Override
     public void contextInitialized(final ServletContextEvent servletContextEvent) {
         super.contextInitialized(servletContextEvent);
-        final Properties propertiesFile = (Properties) servletContextEvent.getServletContext().getAttribute("properties");
+        final Properties propertiesFile = (Properties) servletContextEvent.getServletContext().getAttribute(KEY_PROPERTIES);
         OutputFileServlet.setBasePath(propertiesFile.getProperty("outputPath"));
     }
 
@@ -40,9 +40,9 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
     }
 
     private static void validateLibreOfficePath(final Properties properties) {
-        final String libreOfficePath = properties.getProperty("libreOfficePath");
+        final String libreOfficePath = properties.getProperty(KEY_PROPERTY_LIBRE_OFFICE);
         if (libreOfficePath == null || libreOfficePath.isEmpty()) {
-            properties.setProperty("libreOfficePath", "soffice");
+            properties.setProperty(KEY_PROPERTY_LIBRE_OFFICE, "soffice");
             LOG.log(Level.WARNING, "Properties value for \"libreOfficePath\" was not set. Using a value of \"soffice\"");
         }
 
