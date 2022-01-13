@@ -29,7 +29,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
     public void contextInitialized(final ServletContextEvent servletContextEvent) {
         super.contextInitialized(servletContextEvent);
         final Properties propertiesFile = (Properties) servletContextEvent.getServletContext().getAttribute(KEY_PROPERTIES);
-        OutputFileServlet.setBasePath(propertiesFile.getProperty("outputPath"));
+        OutputFileServlet.setBasePath(propertiesFile.getProperty(KEY_PROPERTY_OUTPUT_PATH));
     }
 
     @Override

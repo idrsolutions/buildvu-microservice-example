@@ -93,9 +93,9 @@ public class BuildVuServlet extends BaseServlet {
         final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            final Properties properties = (Properties) getServletContext().getAttribute("properties");
+            final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
 
-            final String libreOfficePath = properties.getProperty("libreOfficePath");
+            final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
             if (!LibreOfficeHelper.convertToPDF(libreOfficePath, inputFile, individual)) {
                 return;
             }
