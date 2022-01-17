@@ -20,6 +20,7 @@
  */
 package com.idrsolutions.microservice;
 
+import com.idrsolutions.microservice.db.DBHandler;
 import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
 import com.idrsolutions.microservice.utils.SettingsValidator;
@@ -35,6 +36,7 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -76,18 +78,24 @@ public class BuildVuServlet extends BaseServlet {
      * See API docs for information on how this method communicates via the
      * individual object to the client.
      *
-     * @param individual The individual object associated with this conversion
+     * @param uuid The uuid of the conversion
      * @param params The map of parameters that came with the request
      * @param inputFile The input file
      * @param outputDir The output directory of the converted file
      * @param contextUrl The context that this servlet is running in
      */
     @Override
-    protected void convert(Individual individual, Map<String, String[]> params,
+    protected void convert(String uuid, Map<String, String[]> params,
                            File inputFile, File outputDir, String contextUrl) {
 
-        final Map<String, String> conversionParams = individual.getSettings() != null
-                ? individual.getSettings() : new HashMap<>();
+        final Map<String, String> conversionParams;
+        try {
+            Map<String, String> settings = DBHandler.INSTANCE.getSettings(uuid);
+            conversionParams = settings != null ? settings : new HashMap<>();
+        } catch (final SQLException e) {
+            DBHandler.INSTANCE.setError(uuid, 500, "Database failure");
+            return;
+        }
 
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
@@ -99,13 +107,13 @@ public class BuildVuServlet extends BaseServlet {
         final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            if (!LibreOfficeHelper.convertToPDF(inputFile, individual)) {
+            if (!LibreOfficeHelper.convertToPDF(inputFile, uuid)) {
                 return;
             }
             inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
             if (!inputPdf.exists()) {
                 LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
-                individual.doError(1080, "Error processing PDF");
+                DBHandler.INSTANCE.setError(uuid, 1080, "Error processing PDF");
                 return;
             }
         } else {
@@ -115,7 +123,7 @@ public class BuildVuServlet extends BaseServlet {
         //Makes the directory for the output file
         new File(outputDirStr, fileNameWithoutExt).mkdirs();
 
-        individual.setState("processing");
+        DBHandler.INSTANCE.setState(uuid, "processing");
 
         try {
             final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
@@ -128,18 +136,18 @@ public class BuildVuServlet extends BaseServlet {
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
                     outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
-            final String outputPathInDocroot = individual.getUuid() + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
+            final String outputPathInDocroot = uuid + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
 
             if (!isContentMode) {
-                individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+                DBHandler.INSTANCE.setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
             }
-            individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+            DBHandler.INSTANCE.setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
 
-            individual.setState("processed");
+            DBHandler.INSTANCE.setState(uuid, "processed");
 
         } catch (final Throwable ex) {
             LOG.log(Level.SEVERE, "Exception thrown when converting input", ex);
-            individual.doError(1220, "Exception thrown when converting input" + ex.getMessage());
+            DBHandler.INSTANCE.setError(uuid, 1220, "Exception thrown when converting input" + ex.getMessage());
         }
     }
 
@@ -151,12 +159,12 @@ public class BuildVuServlet extends BaseServlet {
      *
      * @param request the request for this conversion
      * @param response the response object for the request
-     * @param individual the individual belonging to this conversion
+     * @param uuid the uuid of this conversion
      * @return true if the settings are parsed and validated successfully, false if not
      */
     @Override
     protected boolean validateRequest(final HttpServletRequest request, final HttpServletResponse response,
-                                      final Individual individual) {
+                                      final String uuid) {
 
         final Map<String, String> settings;
         try {
@@ -204,7 +212,7 @@ public class BuildVuServlet extends BaseServlet {
             return false;
         }
 
-        individual.setSettings(settings);
+        request.setAttribute("com.idrsolutions.microservice.settings", settings);
 
         return true;
     }
