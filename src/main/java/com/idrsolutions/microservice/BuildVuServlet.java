@@ -36,6 +36,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -45,17 +46,11 @@ import java.util.logging.Logger;
  *
  * @see BaseServlet
  */
-@WebServlet(name = "buildvu", urlPatterns = "/buildvu", loadOnStartup = 1)
+@WebServlet(name = "buildvu", urlPatterns = "/buildvu")
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
-
-    static {
-        setInputPath(USER_HOME + "/.idr/buildvu-microservice/input/");
-        setOutputPath(USER_HOME + "/.idr/buildvu-microservice/output/");
-        OutputFileServlet.setBasePath(USER_HOME + "/.idr/buildvu-microservice/output");
-    }
 
     private static final String[] validTextModeOptions = {
             "svg_realtext",
@@ -98,7 +93,10 @@ public class BuildVuServlet extends BaseServlet {
         final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            if (!LibreOfficeHelper.convertToPDF(inputFile, individual)) {
+            final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
+
+            final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
+            if (!LibreOfficeHelper.convertToPDF(libreOfficePath, inputFile, individual)) {
                 return;
             }
             inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
