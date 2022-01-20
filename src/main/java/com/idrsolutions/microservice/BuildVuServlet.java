@@ -131,9 +131,14 @@ public class BuildVuServlet extends BaseServlet {
             if (!isContentMode) {
                 individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
             }
+            individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+
+            if (storage != null) {
+                final String remoteUrl = storage.put(new File(outputDirStr + "/" + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", individual.getUuid());
+                individual.setValue("remoteUrl", remoteUrl);
+            }
 
             individual.setState("processed");
-
         } catch (final Throwable ex) {
             LOG.log(Level.SEVERE, "Exception thrown when converting input", ex);
             individual.doError(1220, "Exception thrown when converting input" + ex.getMessage());
