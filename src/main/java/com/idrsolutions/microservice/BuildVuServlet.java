@@ -20,10 +20,11 @@
  */
 package com.idrsolutions.microservice;
 
+import com.idrsolutions.microservice.utils.DefaultFileServlet;
+import com.idrsolutions.microservice.utils.LibreOfficeHelper;
 import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
-import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.ContentOptions;
 import org.jpedal.render.output.IDRViewerOptions;
 import org.jpedal.render.output.OutputModeOptions;
@@ -34,10 +35,9 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -47,7 +47,7 @@ import java.util.logging.Logger;
  *
  * @see BaseServlet
  */
-@WebServlet(name = "buildvu", urlPatterns = {"/buildvu"})
+@WebServlet(name = "buildvu", urlPatterns = "/buildvu")
 @MultipartConfig
 public class BuildVuServlet extends BaseServlet {
 
@@ -91,20 +91,27 @@ public class BuildVuServlet extends BaseServlet {
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
 
-        final String userPdfFilePath;
-
+        final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
-            if (!convertToPDF(inputFile, individual)) {
+            final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
+
+            final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
+            if (!LibreOfficeHelper.convertToPDF(libreOfficePath, inputFile, individual)) {
                 return;
             }
-            userPdfFilePath = inputDir + "/" + fileNameWithoutExt + ".pdf";
+            inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
+            if (!inputPdf.exists()) {
+                LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
+                individual.doError(1080, "Error processing PDF");
+                return;
+            }
         } else {
-            userPdfFilePath = inputDir + "/" + fileName;
+            inputPdf = new File(inputDir, fileName);
         }
 
         //Makes the directory for the output file
-        new File(outputDirStr + "/" + fileNameWithoutExt).mkdirs();
+        new File(outputDirStr, fileNameWithoutExt).mkdirs();
 
         individual.setState("processing");
 
@@ -113,24 +120,23 @@ public class BuildVuServlet extends BaseServlet {
 
             final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
 
-            final File inFile = new File(userPdfFilePath);
-
-            final BuildVuConverter converter = new BuildVuConverter(inFile, outputDir, conversionParams, outputModeOptions);
+            final BuildVuConverter converter = new BuildVuConverter(inputPdf, outputDir, conversionParams, outputModeOptions);
             converter.convert();
 
-            final String outputPathInDocroot = individual.getUuid() + "/" + fileNameWithoutExt;
+            ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
+                    outputDirStr + "/" + fileNameWithoutExt + ".zip");
+
+            final String outputPathInDocroot = individual.getUuid() + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
 
             if (!isContentMode) {
                 individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
             }
 
-            finishConversion(individual, new File(outputDirStr + "/" + fileNameWithoutExt), fileNameWithoutExt);
-        } catch (final PdfException ex) {
-            LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
-            individual.doError(1220, ex.getMessage());
-        } catch (final Exception ex) {
-            LOG.log(Level.SEVERE, "Exception thrown when trying to convert file", ex);
-            individual.doError(1220, "error occurred whilst converting the file");
+            individual.setState("processed");
+
+        } catch (final Throwable ex) {
+            LOG.log(Level.SEVERE, "Exception thrown when converting input", ex);
+            individual.doError(1220, "Exception thrown when converting input" + ex.getMessage());
         }
     }
 
@@ -188,6 +194,7 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateString("org.jpedal.pdf2html.password", ".*", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.inlineSVG", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.enableLaunchActions", false);
+        settingsValidator.validateBoolean("experimentalTextMode", false);
 
         if (!settingsValidator.isValid()) {
             doError(request, response, "Invalid settings detected.\n" + settingsValidator.getMessage(), 400);
@@ -196,42 +203,6 @@ public class BuildVuServlet extends BaseServlet {
 
         individual.setSettings(settings);
 
-        return true;
-    }
-
-    /**
-     * Converts an office file to PDF using LibreOffice.
-     *
-     * @param file The office file to convert to PDF
-     * @param individual The Individual on which to set the error if one occurs
-     * @return true on success, false on failure
-     * occurs
-     */
-    private static boolean convertToPDF(final File file, final Individual individual) {
-        final String uuid = individual.getUuid();
-        final String uniqueLOProfile = TEMP_DIR + "LO-" + uuid;
-
-        final ProcessBuilder pb = new ProcessBuilder("soffice",
-                "-env:UserInstallation=file://" + uniqueLOProfile,
-                "--headless", "--convert-to", "pdf", file.getName());
-
-        pb.directory(new File(file.getParent()));
-
-        try {
-            final Process process = pb.start();
-            if (!process.waitFor(1, TimeUnit.MINUTES)) {
-                process.destroy();
-                individual.doError(1050, "Libreoffice timed out after 1 minute");
-                return false;
-            }
-        } catch (final IOException | InterruptedException e) {
-            e.printStackTrace(); // soffice location may need to be added to the path
-            LOG.severe(e.getMessage());
-            individual.doError(1070, "Internal error processing file");
-            return false;
-        } finally {
-            deleteFolder(new File(uniqueLOProfile));
-        }
         return true;
     }
 }
