@@ -74,13 +74,12 @@ public class BuildVuServlet extends BaseServlet {
      * individual object to the client.
      *
      * @param uuid The uuid of the conversion
-     * @param params The map of parameters that came with the request
      * @param inputFile The input file
      * @param outputDir The output directory of the converted file
      * @param contextUrl The context that this servlet is running in
      */
     @Override
-    protected void convert(String uuid, Map<String, String[]> params,
+    protected void convert(String uuid,
                            File inputFile, File outputDir, String contextUrl) {
 
         final Map<String, String> conversionParams;
