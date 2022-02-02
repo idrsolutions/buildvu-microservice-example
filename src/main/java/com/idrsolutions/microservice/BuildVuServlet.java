@@ -20,6 +20,7 @@
  */
 package com.idrsolutions.microservice;
 
+import com.idrsolutions.microservice.storage.IStorage;
 import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
 import com.idrsolutions.microservice.utils.SettingsValidator;
@@ -132,6 +133,8 @@ public class BuildVuServlet extends BaseServlet {
                 individual.setValue("previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
             }
             individual.setValue("downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+
+            IStorage storage = (IStorage) getServletContext().getAttribute("storage");
 
             if (storage != null) {
                 final String remoteUrl = storage.put(new File(outputDirStr + "/" + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", individual.getUuid());
