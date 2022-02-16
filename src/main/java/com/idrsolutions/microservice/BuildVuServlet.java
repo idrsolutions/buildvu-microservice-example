@@ -173,7 +173,7 @@ public class BuildVuServlet extends BaseServlet {
         settingsValidator.validateBoolean("org.jpedal.pdf2html.separateTextToWords", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.compressImages", false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.useLegacyImageFileType", false);
-        settingsValidator.validateFloat("org.jpedal.pdf2html.imageScale", new float[]{1, 10}, false);
+        settingsValidator.validateFloat("org.jpedal.pdf2html.imageScale", new float[]{0.1f, 10}, false);
         settingsValidator.validateString("org.jpedal.pdf2html.includedFonts",
                 new String[]{"woff", "otf", "woff_base64", "otf_base64"}, false);
         settingsValidator.validateBoolean("org.jpedal.pdf2html.disableComments", false);
