@@ -84,10 +84,10 @@ public class BuildVuServlet extends BaseServlet {
 
         final Map<String, String> conversionParams;
         try {
-            final Map<String, String> settings = DBHandler.INSTANCE.getSettings(uuid);
+            final Map<String, String> settings = DBHandler.getInstance().getSettings(uuid);
             conversionParams = settings != null ? settings : new HashMap<>();
         } catch (final SQLException e) {
-            DBHandler.INSTANCE.setError(uuid, 500, "Database failure");
+            DBHandler.getInstance().setError(uuid, 500, "Database failure");
             return;
         }
 
@@ -110,7 +110,7 @@ public class BuildVuServlet extends BaseServlet {
             inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
             if (!inputPdf.exists()) {
                 LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
-                DBHandler.INSTANCE.setError(uuid, 1080, "Error processing PDF");
+                DBHandler.getInstance().setError(uuid, 1080, "Error processing PDF");
                 return;
             }
         } else {
@@ -120,7 +120,7 @@ public class BuildVuServlet extends BaseServlet {
         //Makes the directory for the output file
         new File(outputDirStr, fileNameWithoutExt).mkdirs();
 
-        DBHandler.INSTANCE.setState(uuid, "processing");
+        DBHandler.getInstance().setState(uuid, "processing");
 
         try {
             final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
@@ -136,15 +136,15 @@ public class BuildVuServlet extends BaseServlet {
             final String outputPathInDocroot = uuid + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
 
             if (!isContentMode) {
-                DBHandler.INSTANCE.setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+                DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
             }
-            DBHandler.INSTANCE.setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+            DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
 
-            DBHandler.INSTANCE.setState(uuid, "processed");
+            DBHandler.getInstance().setState(uuid, "processed");
 
         } catch (final Throwable ex) {
             LOG.log(Level.SEVERE, "Exception thrown when converting input", ex);
-            DBHandler.INSTANCE.setError(uuid, 1220, "Exception thrown when converting input" + ex.getMessage());
+            DBHandler.getInstance().setError(uuid, 1220, "Exception thrown when converting input" + ex.getMessage());
         }
     }
 
