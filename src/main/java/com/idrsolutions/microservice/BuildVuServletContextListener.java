@@ -57,6 +57,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
         super.validateConfigFileValues(propertiesFile);
 
         validateLibreOfficePath(propertiesFile);
+        validateLibreOfficeTimeout(propertiesFile);
     }
 
     private static void validateLibreOfficePath(final Properties properties) {
@@ -65,6 +66,13 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
             properties.setProperty(KEY_PROPERTY_LIBRE_OFFICE, "soffice");
             LOG.log(Level.WARNING, "Properties value for \"libreOfficePath\" was not set. Using a value of \"soffice\"");
         }
+    }
 
+    private static void validateLibreOfficeTimeout(final Properties properties) {
+        final String libreOfficeTimeout = properties.getProperty(KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT);
+        if (libreOfficeTimeout == null || libreOfficeTimeout.isEmpty() || !libreOfficeTimeout.matches("\\d+")) {
+            properties.setProperty(KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT, "60000");
+            LOG.log(Level.WARNING, "Properties value for \"libreOfficeTimeout\" was not set. Using a value of \"60000\"");
+        }
     }
 }
