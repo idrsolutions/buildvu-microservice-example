@@ -106,14 +106,25 @@ public class BuildVuServlet extends BaseServlet {
 
             final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
             final long libreOfficeTimeout = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT));
-            if (!LibreOfficeHelper.convertToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout)) {
-                return;
-            }
-            inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
-            if (!inputPdf.exists()) {
-                LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
-                DBHandler.getInstance().setError(uuid, 1080, "Error processing PDF");
-                return;
+            LibreOfficeHelper.Result libreOfficeConversionResult = LibreOfficeHelper.convertDocToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout);
+            switch (libreOfficeConversionResult) {
+                case TIMEOUT:
+                    DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Maximum conversion duration exceeded.");
+                    return;
+                case ERROR:
+                    DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Internal error processing file");
+                    return;
+                case SUCCESS:
+                    inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
+                    if (!inputPdf.exists()) {
+                        LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
+                        DBHandler.getInstance().setError(uuid, 1080, "Error processing PDF");
+                        return;
+                    }
+                default:
+                    LOG.log(Level.SEVERE, "Unexpected error has occurred converting office document: " + libreOfficeConversionResult.getCode() + " using LibreOffice");
+                    DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Failed to convert office document to PDF");
+                    return;
             }
         } else {
             inputPdf = new File(inputDir, fileName);
