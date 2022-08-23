@@ -24,12 +24,12 @@ import com.idrsolutions.microservice.db.DBHandler;
 import com.idrsolutions.microservice.storage.Storage;
 import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
-import com.idrsolutions.microservice.utils.SettingsValidator;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.render.output.ContentOptions;
 import org.jpedal.render.output.IDRViewerOptions;
 import org.jpedal.render.output.OutputModeOptions;
+import org.jpedal.settings.BuildVuSettingsValidator;
 
 import javax.json.stream.JsonParsingException;
 import javax.servlet.annotation.MultipartConfig;
@@ -190,41 +190,10 @@ public class BuildVuServlet extends BaseServlet {
             return false;
         }
 
-        final SettingsValidator settingsValidator = new SettingsValidator(settings);
-
-        settingsValidator.validateString("org.jpedal.pdf2html.textMode", validTextModeOptions, false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.compressSVG", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.embedImagesAsBase64Stream", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.convertSpacesToNbsp", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.keepGlyfsSeparate", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.separateTextToWords", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.compressImages", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.useLegacyImageFileType", false);
-        settingsValidator.validateFloat("org.jpedal.pdf2html.imageScale", new float[]{1, 10}, false);
-        settingsValidator.validateString("org.jpedal.pdf2html.includedFonts",
-                new String[]{"woff", "otf", "woff_base64", "otf_base64"}, false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.disableComments", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.realPageRange",
-                "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.logicalPageRange",
-                "(\\s*((\\d+\\s*-\\s*\\d+)|(\\d+\\s*:\\s*\\d+)|(\\d+))\\s*(,|$)\\s*)+", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.scaling",
-                "(\\d+\\.\\d+)|(\\d+x\\d+)|(fitWidth\\d+)|(fitHeight\\d+)|(\\d+)", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.viewMode", new String[]{"content"}, false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.completeDocument", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.viewerUI",
-                new String[]{"complete", "clean", "simple", "slideshow", "custom"}, false);
-        settingsValidator.validateString("org.jpedal.pdf2html.containerId", ".*", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.generateSearchFile", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.outputThumbnails", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.svgMode", false);
-        settingsValidator.validateString("org.jpedal.pdf2html.password", ".*", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.inlineSVG", false);
-        settingsValidator.validateBoolean("org.jpedal.pdf2html.enableLaunchActions", false);
-        settingsValidator.validateBoolean("experimentalTextMode", false);
-
-        if (!settingsValidator.isValid()) {
-            doError(request, response, "Invalid settings detected.\n" + settingsValidator.getMessage(), 400);
+        try {
+            BuildVuSettingsValidator.validate(settings, false);
+        } catch(final IllegalArgumentException e) {
+            doError(request, response, e.getMessage(), 400);
             return false;
         }
 
