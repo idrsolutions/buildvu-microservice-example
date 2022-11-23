@@ -22,11 +22,13 @@ package com.idrsolutions.microservice;
 
 import com.idrsolutions.microservice.db.DBHandler;
 import com.idrsolutions.microservice.storage.Storage;
+import com.idrsolutions.microservice.utils.ConversionTracker;
 import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
 import com.idrsolutions.microservice.utils.ZipHelper;
+import org.jpedal.PdfDecoderServer;
 import org.jpedal.examples.BuildVuConverter;
-import org.jpedal.io.DefaultErrorTracker;
+import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.ContentOptions;
 import org.jpedal.render.output.IDRViewerOptions;
 import org.jpedal.render.output.OutputModeOptions;
@@ -132,6 +134,29 @@ public class BuildVuServlet extends BaseServlet {
 
         //Makes the directory for the output file
         new File(outputDirStr, fileNameWithoutExt).mkdirs();
+        final int pageCount;
+        try {
+            final PdfDecoderServer decoder = new PdfDecoderServer(false);
+            decoder.openPdfFile(inputPdf.getAbsolutePath());
+
+            decoder.setEncryptionPassword(conversionParams.getOrDefault("org.jpedal.pdf2html.password", ""));
+
+            if (decoder.isEncrypted() && !decoder.isPasswordSupplied()) {
+                LOG.log(Level.SEVERE, "Invalid Password");
+                DBHandler.getInstance().setError(uuid, 1070, "Invalid password supplied.");
+                return;
+            }
+
+            pageCount = decoder.getPageCount();
+            DBHandler.getInstance().setCustomValue(uuid, "pageCount", String.valueOf(pageCount));
+            DBHandler.getInstance().setCustomValue(uuid, "pagesConverted", "0");
+            decoder.closePdfFile();
+            decoder.dispose();
+        } catch (final PdfException e) {
+            LOG.log(Level.SEVERE, "Invalid PDF", e);
+            DBHandler.getInstance().setError(uuid, 1060, "Invalid PDF");
+            return;
+        }
 
         DBHandler.getInstance().setState(uuid, "processing");
 
@@ -143,7 +168,7 @@ public class BuildVuServlet extends BaseServlet {
             final BuildVuConverter converter = new BuildVuConverter(inputPdf, outputDir, conversionParams, outputModeOptions);
 
             final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
-            converter.setCustomErrorTracker(new DurationTracker(uuid, maxDuration));
+            converter.setCustomErrorTracker(new ConversionTracker(uuid, maxDuration));
 
             converter.convert();
 
@@ -211,29 +236,4 @@ public class BuildVuServlet extends BaseServlet {
 
         return true;
     }
-
-    private static class DurationTracker extends DefaultErrorTracker {
-
-        private final String uuid;
-        private final long startTime;
-        private final long maxDuration;
-
-        public DurationTracker(final String uuid, final long maxDuration) {
-            this.uuid = uuid;
-            this.maxDuration = maxDuration;
-            startTime = System.currentTimeMillis();
-        }
-
-        @Override
-        public boolean checkForExitRequest(int dataPointer, int streamSize) {
-            if (System.currentTimeMillis() - startTime > maxDuration) {
-                DBHandler.getInstance().setError(uuid, 1230, "Conversion exceeded max duration of " + maxDuration + "ms");
-                return true;
-            }
-
-            return false;
-        }
-
-    }
-
 }
