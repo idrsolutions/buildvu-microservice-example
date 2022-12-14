@@ -22,13 +22,10 @@ package com.idrsolutions.microservice;
 
 import com.idrsolutions.microservice.db.DBHandler;
 import com.idrsolutions.microservice.storage.Storage;
-import com.idrsolutions.microservice.utils.ConversionTracker;
 import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
 import com.idrsolutions.microservice.utils.ZipHelper;
-import org.jpedal.PdfDecoderServer;
 import org.jpedal.examples.BuildVuConverter;
-import org.jpedal.exception.PdfException;
 import org.jpedal.render.output.ContentOptions;
 import org.jpedal.render.output.IDRViewerOptions;
 import org.jpedal.render.output.OutputModeOptions;
@@ -101,11 +98,12 @@ public class BuildVuServlet extends BaseServlet {
         // To avoid repeated calls to getParent() and getAbsolutePath()
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
-        final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
 
         final File inputPdf;
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
+            final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
+
             final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
             final long libreOfficeTimeout = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT));
             LibreOfficeHelper.Result libreOfficeConversionResult = LibreOfficeHelper.convertDocToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout);
@@ -134,29 +132,6 @@ public class BuildVuServlet extends BaseServlet {
 
         //Makes the directory for the output file
         new File(outputDirStr, fileNameWithoutExt).mkdirs();
-        final int pageCount;
-        try {
-            final PdfDecoderServer decoder = new PdfDecoderServer(false);
-            decoder.openPdfFile(inputPdf.getAbsolutePath());
-
-            decoder.setEncryptionPassword(conversionParams.getOrDefault("org.jpedal.pdf2html.password", ""));
-
-            if (decoder.isEncrypted() && !decoder.isPasswordSupplied()) {
-                LOG.log(Level.SEVERE, "Invalid Password");
-                DBHandler.getInstance().setError(uuid, 1070, "Invalid password supplied.");
-                return;
-            }
-
-            pageCount = decoder.getPageCount();
-            DBHandler.getInstance().setCustomValue(uuid, "pageCount", String.valueOf(pageCount));
-            DBHandler.getInstance().setCustomValue(uuid, "pagesConverted", "0");
-            decoder.closePdfFile();
-            decoder.dispose();
-        } catch (final PdfException e) {
-            LOG.log(Level.SEVERE, "Invalid PDF", e);
-            DBHandler.getInstance().setError(uuid, 1060, "Invalid PDF");
-            return;
-        }
 
         DBHandler.getInstance().setState(uuid, "processing");
 
@@ -166,17 +141,7 @@ public class BuildVuServlet extends BaseServlet {
             final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
 
             final BuildVuConverter converter = new BuildVuConverter(inputPdf, outputDir, conversionParams, outputModeOptions);
-
-            final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
-            converter.setCustomErrorTracker(new ConversionTracker(uuid, maxDuration));
-
             converter.convert();
-
-            if ("1230".equals(DBHandler.getInstance().getStatus(uuid).get("errorCode"))) {
-                final String message = String.format("Conversion %s exceeded max duration of %dms", uuid, maxDuration);
-                LOG.log(Level.INFO, message);
-                return;
-            }
 
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
                     outputDirStr + "/" + fileNameWithoutExt + ".zip");
