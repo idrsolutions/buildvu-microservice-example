@@ -181,12 +181,10 @@ public class BuildVuServlet extends BaseServlet {
             ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
                     outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
-            final String outputPathInDocroot = DefaultFileServlet.encodeURI(fileNameWithoutExt);
-
             if (!isContentMode) {
-                DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+                DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + uuid + "/index.html");
             }
-            DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+            DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + uuid + ".zip");
 
             final Storage storage = (Storage) getServletContext().getAttribute("storage");
 
