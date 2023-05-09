@@ -123,6 +123,7 @@ public class BuildVuServlet extends BaseServlet {
                         DBHandler.getInstance().setError(uuid, 1080, "Error processing PDF");
                         return;
                     }
+                    break;
                 default:
                     LOG.log(Level.SEVERE, "Unexpected error has occurred converting office document: " + libreOfficeConversionResult.getCode() + " using LibreOffice");
                     DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Failed to convert office document to PDF");
