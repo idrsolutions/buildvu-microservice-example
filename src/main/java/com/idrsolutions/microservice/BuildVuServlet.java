@@ -28,11 +28,8 @@ import com.idrsolutions.microservice.utils.LibreOfficeHelper;
 import com.idrsolutions.microservice.utils.ProcessUtils;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.PdfDecoderServer;
-import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.exception.PdfException;
-import org.jpedal.render.output.ContentOptions;
-import org.jpedal.render.output.IDRViewerOptions;
-import org.jpedal.render.output.OutputModeOptions;
+import org.jpedal.external.ErrorTracker;
 import org.jpedal.settings.BuildVuSettingsValidator;
 
 import javax.json.stream.JsonParsingException;
@@ -41,10 +38,17 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.rmi.AlreadyBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -159,44 +163,84 @@ public class BuildVuServlet extends BaseServlet {
             return;
         }
 
+        try {
+            final ErrorTracker tracker = new ConversionTracker(uuid);
+            final ErrorTracker stub = (ErrorTracker) UnicastRemoteObject.exportObject(tracker, 3366);
+
+            // Bind the remote object's stub in the registry
+            final Registry registry = (Registry) properties.get(BaseServletContextListener.KEY_PROPERTY_REGISTRY);
+            if (registry != null) {
+                registry.bind(uuid, stub);
+            }
+
+        } catch (AlreadyBoundException | RemoteException e) {
+            LOG.log(Level.SEVERE, "Failed to create Tracker");
+            LOG.log(Level.SEVERE, "Exception ", e);
+        }
         DBHandler.getInstance().setState(uuid, "processing");
 
         try {
-            final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
 
-            final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
+            final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.get("org.jpedal.pdf2html.viewMode"));
 
-            final BuildVuConverter converter = new BuildVuConverter(inputPdf, outputDir, conversionParams, outputModeOptions);
+            final String webappDirectory = getServletContext().getRealPath("") + "WEB-INF/lib/buildvu.jar";
+            final ArrayList<String> commandArgs = new ArrayList<>();
+            commandArgs.add("java");
+            //Set memory allotment
+            if (conversionParams.size() > 0) {
+                final Set<String> keys  = conversionParams.keySet();
+                for (final String key : keys) {
+                    final String value = conversionParams.get(key);
+                    commandArgs.add("-D" + key + "=\"" + value + "\" ");
+                }
+            }
+
+            //Set settings
+            commandArgs.add("-Dorg.jpedal.remoteTackerID=" + uuid);
+
+            //Add jar and input / output
+            commandArgs.add("-jar");
+            commandArgs.add(webappDirectory);
+            commandArgs.add(inputPdf.getAbsolutePath());
+            commandArgs.add(outputDir.getAbsolutePath());
+
 
             final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
-            converter.setCustomErrorTracker(new ConversionTracker(uuid, maxDuration));
+            final String[] commands = commandArgs.toArray(new String[0]);
+            LOG.log(Level.SEVERE, Arrays.toString(commands));
+            final ProcessUtils.Result result = ProcessUtils.runProcess(commands, inputPdf.getParentFile(), uuid, "BuildVu Conversion", maxDuration);
+            switch (result) {
+                case SUCCESS:
+                    ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
+                            outputDirStr + "/" + fileNameWithoutExt + ".zip");
 
-            converter.convert();
+                    final String outputPathInDocroot = uuid + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
 
-            if ("1230".equals(DBHandler.getInstance().getStatus(uuid).get("errorCode"))) {
-                final String message = String.format("Conversion %s exceeded max duration of %dms", uuid, maxDuration);
-                LOG.log(Level.INFO, message);
-                return;
+                    if (!isContentMode) {
+                        DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+                    }
+                    DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+
+                    final Storage storage = (Storage) getServletContext().getAttribute("storage");
+
+                    if (storage != null) {
+                        final String remoteUrl = storage.put(new File(outputDirStr + "/" + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", uuid);
+                        DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
+                    }
+
+                    DBHandler.getInstance().setState(uuid, "processed");
+                    break;
+                case TIMEOUT:
+                    final String message = String.format("Conversion %s exceeded max duration of %dms", uuid, maxDuration);
+                    LOG.log(Level.INFO, message);
+                    DBHandler.getInstance().setError(uuid, 1230, "Conversion exceeded max duration of " + maxDuration + "ms");
+                    break;
+                case ERROR:
+                    LOG.log(Level.SEVERE, "An error occurred during the conversion");
+                    DBHandler.getInstance().setError(uuid, 1220, "An error occurred during the conversion");
+                    break;
             }
 
-            ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
-                    outputDirStr + "/" + fileNameWithoutExt + ".zip");
-
-            final String outputPathInDocroot = uuid + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
-
-            if (!isContentMode) {
-                DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
-            }
-            DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
-
-            final Storage storage = (Storage) getServletContext().getAttribute("storage");
-
-            if (storage != null) {
-                final String remoteUrl = storage.put(new File(outputDirStr + "/" + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", uuid);
-                DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
-            }
-
-            DBHandler.getInstance().setState(uuid, "processed");
         } catch (final Throwable ex) {
             LOG.log(Level.SEVERE, "Exception thrown when converting input", ex);
             DBHandler.getInstance().setError(uuid, 1220, "Exception thrown when converting input" + ex.getMessage());

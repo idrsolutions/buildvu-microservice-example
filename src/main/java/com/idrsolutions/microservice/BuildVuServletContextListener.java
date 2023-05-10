@@ -24,6 +24,12 @@ import com.idrsolutions.microservice.db.DBHandler;
 
 import javax.servlet.ServletContextEvent;
 import javax.servlet.annotation.WebListener;
+import java.rmi.NoSuchObjectException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.ExportException;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -57,6 +63,34 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
             final String message = "It is recommended to set your own database instead of using the default internal database as it will allow you to more easily scale the service in the future.\n" +
                     "More details on the benefits and how to do this can be found here https://support.idrsolutions.com/buildvu/tutorials/cloud/options/external-state-database";
             LOG.log(Level.WARNING, message);
+        }
+
+
+        try {
+            Registry reg = null;
+            try {
+                reg = LocateRegistry.createRegistry(3366);
+            } catch (final ExportException ex) {
+                reg = LocateRegistry.getRegistry(3366);
+            } catch (RemoteException ex) {
+                LOG.log(Level.WARNING, "Unable to create Registry to allow conversion tracking.");
+            }
+
+            propertiesFile.put(KEY_PROPERTY_REGISTRY, reg);
+        } catch (RemoteException e) {
+            LOG.log(Level.WARNING, "Unable to create Registry to allow conversion tracking.");
+        }
+    }
+
+    @Override
+    public void contextDestroyed(final ServletContextEvent servletContextEvent) {
+        super.contextDestroyed(servletContextEvent);
+        final Properties propertiesFile = (Properties) servletContextEvent.getServletContext().getAttribute(KEY_PROPERTIES);
+        final Registry reg = (Registry) propertiesFile.get(KEY_PROPERTY_REGISTRY);
+        try {
+            UnicastRemoteObject.unexportObject(reg, true);
+        } catch (NoSuchObjectException e) {
+            LOG.log(Level.WARNING, "Unable to unexport Registry.");
         }
     }
 
