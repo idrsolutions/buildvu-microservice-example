@@ -163,12 +163,13 @@ public class BuildVuServlet extends BaseServlet {
             return;
         }
 
+        final int remoteTrackerPort = Integer.parseInt((String) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_REGISTRY));
         try {
             final ErrorTracker tracker = new ConversionTracker(uuid);
-            final ErrorTracker stub = (ErrorTracker) UnicastRemoteObject.exportObject(tracker, 3366);
+            final ErrorTracker stub = (ErrorTracker) UnicastRemoteObject.exportObject(tracker, remoteTrackerPort);
 
             // Bind the remote object's stub in the registry
-            final Registry registry = (Registry) properties.get(BaseServletContextListener.KEY_PROPERTY_REGISTRY);
+            final Registry registry = (Registry) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_REGISTRY);
             if (registry != null) {
                 registry.bind(uuid, stub);
             }
@@ -196,7 +197,8 @@ public class BuildVuServlet extends BaseServlet {
             }
 
             //Set settings
-            commandArgs.add("-Dorg.jpedal.remoteTackerID=" + uuid);
+            commandArgs.add("-Dorg.jpedal.remoteTracker.port=" + remoteTrackerPort);
+            commandArgs.add("-Dorg.jpedal.remoteTracker.id=" + uuid);
 
             //Add jar and input / output
             commandArgs.add("-jar");

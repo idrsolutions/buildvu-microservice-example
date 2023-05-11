@@ -76,7 +76,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
                 LOG.log(Level.WARNING, "Unable to create Registry to allow conversion tracking.");
             }
 
-            propertiesFile.put(KEY_PROPERTY_REGISTRY, reg);
+            propertiesFile.put(KEY_PROPERTY_REMOTE_TRACKING_REGISTRY, reg);
         } catch (RemoteException e) {
             LOG.log(Level.WARNING, "Unable to create Registry to allow conversion tracking.");
         }
@@ -86,7 +86,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
     public void contextDestroyed(final ServletContextEvent servletContextEvent) {
         super.contextDestroyed(servletContextEvent);
         final Properties propertiesFile = (Properties) servletContextEvent.getServletContext().getAttribute(KEY_PROPERTIES);
-        final Registry reg = (Registry) propertiesFile.get(KEY_PROPERTY_REGISTRY);
+        final Registry reg = (Registry) propertiesFile.get(KEY_PROPERTY_REMOTE_TRACKING_REGISTRY);
         try {
             UnicastRemoteObject.unexportObject(reg, true);
         } catch (NoSuchObjectException e) {
@@ -100,6 +100,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
 
         validateLibreOfficePath(propertiesFile);
         validateLibreOfficeTimeout(propertiesFile);
+        validateRemoteTrackerPort(propertiesFile);
     }
 
     private static void validateLibreOfficePath(final Properties properties) {
@@ -115,6 +116,14 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
         if (libreOfficeTimeout == null || libreOfficeTimeout.isEmpty() || !libreOfficeTimeout.matches("\\d+")) {
             properties.setProperty(KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT, "60000");
             LOG.log(Level.WARNING, "Properties value for \"libreOfficeTimeout\" was not set. Using a value of \"60000\"");
+        }
+    }
+
+    private static void validateRemoteTrackerPort(final Properties properties) {
+        final String remoteTrackingPort = properties.getProperty(KEY_PROPERTY_REMOTE_TRACKING_PORT);
+        if (remoteTrackingPort == null || remoteTrackingPort.isEmpty() || !remoteTrackingPort.matches("\\d+")) {
+            properties.setProperty(KEY_PROPERTY_REMOTE_TRACKING_PORT, "1099");
+            LOG.log(Level.WARNING, "Properties value for \"remoteTracker.port\" was not set. Using a value of \"1099\"");
         }
     }
 }
