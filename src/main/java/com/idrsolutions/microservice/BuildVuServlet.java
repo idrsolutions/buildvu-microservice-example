@@ -164,7 +164,7 @@ public class BuildVuServlet extends BaseServlet {
             return;
         }
 
-        final int remoteTrackerPort = Integer.parseInt((String) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_REGISTRY));
+        final int remoteTrackerPort = Integer.parseInt((String) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_PORT));
         try {
             final ErrorTracker tracker = new ConversionTracker(uuid);
             final ErrorTracker stub = (ErrorTracker) UnicastRemoteObject.exportObject(tracker, remoteTrackerPort);

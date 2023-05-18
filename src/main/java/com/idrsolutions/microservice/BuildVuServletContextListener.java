@@ -67,11 +67,12 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
 
 
         try {
+            final int remoteTrackerPort = Integer.parseInt((String) propertiesFile.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_PORT));
             Registry reg = null;
             try {
-                reg = LocateRegistry.createRegistry(3366);
+                reg = LocateRegistry.createRegistry(remoteTrackerPort);
             } catch (final ExportException ex) {
-                reg = LocateRegistry.getRegistry(3366);
+                reg = LocateRegistry.getRegistry(remoteTrackerPort);
             } catch (RemoteException ex) {
                 LOG.log(Level.WARNING, "Unable to create Registry to allow conversion tracking.");
             }
