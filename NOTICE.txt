@@ -1,0 +1,7 @@
+                       BuildVu Microservice Example
+                       ============================
+
+Please visit the IDRSolutions site to access the product or trial needed for this project:
+  * https://www.idrsolutions.com/buildvu/
+
+Copyright 2018 - 2023 IDRsolutions
