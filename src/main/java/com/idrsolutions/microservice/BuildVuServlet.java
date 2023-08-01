@@ -97,7 +97,6 @@ public class BuildVuServlet extends BaseServlet {
 
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
-        final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf("."));
         // To avoid repeated calls to getParent() and getAbsolutePath()
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
@@ -117,7 +116,7 @@ public class BuildVuServlet extends BaseServlet {
                     DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Internal error processing file");
                     return;
                 case SUCCESS:
-                    inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
+                    inputPdf = new File(inputDir, uuid + ".pdf");
                     if (!inputPdf.exists()) {
                         LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
                         DBHandler.getInstance().setError(uuid, 1080, "Error processing PDF");
@@ -134,7 +133,8 @@ public class BuildVuServlet extends BaseServlet {
         }
 
         //Makes the directory for the output file
-        new File(outputDirStr, fileNameWithoutExt).mkdirs();
+        final File conversionDir = new File(outputDirStr, uuid);
+        conversionDir.mkdirs();
         final int pageCount;
         try {
             final PdfDecoderServer decoder = new PdfDecoderServer(false);
@@ -166,7 +166,11 @@ public class BuildVuServlet extends BaseServlet {
 
             final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
 
-            final BuildVuConverter converter = new BuildVuConverter(inputPdf, outputDir, conversionParams, outputModeOptions);
+            final String originalFileName = DBHandler.getInstance().getCustomData(uuid).get("originalFileName");
+            conversionParams.put("org.jpedal.pdf2html.originalFileName", originalFileName);
+            conversionParams.put("org.jpedal.pdf2html.omitNameDir", "true");
+
+            final BuildVuConverter converter = new BuildVuConverter(inputPdf, conversionDir, conversionParams, outputModeOptions);
 
             final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
             converter.setCustomErrorTracker(new ConversionTracker(uuid, maxDuration));
@@ -179,20 +183,18 @@ public class BuildVuServlet extends BaseServlet {
                 return;
             }
 
-            ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
-                    outputDirStr + "/" + fileNameWithoutExt + ".zip");
-
-            final String outputPathInDocroot = uuid + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
+            ZipHelper.zipFolder(outputDirStr + "/" + uuid,
+                    outputDirStr + "/" + uuid + ".zip");
 
             if (!isContentMode) {
-                DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
+                DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + uuid + "/index.html");
             }
-            DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+            DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + uuid + ".zip");
 
             final Storage storage = (Storage) getServletContext().getAttribute("storage");
 
             if (storage != null) {
-                final String remoteUrl = storage.put(new File(outputDirStr + "/" + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", uuid);
+                final String remoteUrl = storage.put(new File(outputDirStr + "/" + uuid + ".zip"), uuid + ".zip", uuid);
                 DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
             }
 
