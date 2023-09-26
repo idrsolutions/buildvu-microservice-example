@@ -24,6 +24,12 @@ import com.idrsolutions.microservice.db.DBHandler;
 
 import javax.servlet.ServletContextEvent;
 import javax.servlet.annotation.WebListener;
+import java.rmi.NoSuchObjectException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.ExportException;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -58,6 +64,37 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
                     "More details on the benefits and how to do this can be found here https://support.idrsolutions.com/buildvu/tutorials/cloud/options/external-state-database";
             LOG.log(Level.WARNING, message);
         }
+
+        try {
+            final String remoteTrackingPort = propertiesFile.getProperty(KEY_PROPERTY_REMOTE_TRACKING_PORT);
+            Registry reg = null;
+            try {
+                reg = LocateRegistry.createRegistry(Integer.parseInt(remoteTrackingPort));
+            } catch (final ExportException ex) {
+                reg = LocateRegistry.getRegistry(Integer.parseInt(remoteTrackingPort));
+            } catch (final RemoteException ex) {
+                LOG.log(Level.WARNING, "Unable to create Registry to allow conversion tracking.");
+            }
+
+            propertiesFile.put(KEY_PROPERTY_REMOTE_TRACKING_REGISTRY, reg);
+        } catch (final RemoteException e) {
+            LOG.log(Level.WARNING, "Unable to create Registry to allow conversion tracking.");
+        }
+    }
+
+    @Override
+    public void contextDestroyed(final ServletContextEvent servletContextEvent) {
+        super.contextDestroyed(servletContextEvent);
+
+        final Properties propertiesFile = (Properties) servletContextEvent.getServletContext().getAttribute(KEY_PROPERTIES);
+        final Registry registry = ((Registry) propertiesFile.get(KEY_PROPERTY_REMOTE_TRACKING_REGISTRY));
+        if (registry != null) {
+            try {
+                UnicastRemoteObject.unexportObject(registry, true);
+            } catch (final NoSuchObjectException e) {
+                LOG.log(Level.SEVERE, "Unable to stop Registry for conversion tracking.");
+            }
+        }
     }
 
     @Override
@@ -66,6 +103,7 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
 
         validateLibreOfficePath(propertiesFile);
         validateLibreOfficeTimeout(propertiesFile);
+        validateRemoteTrackerPort(propertiesFile);
     }
 
     private static void validateLibreOfficePath(final Properties properties) {
@@ -81,6 +119,14 @@ public class BuildVuServletContextListener extends BaseServletContextListener {
         if (libreOfficeTimeout == null || libreOfficeTimeout.isEmpty() || !libreOfficeTimeout.matches("\\d+")) {
             properties.setProperty(KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT, "60000");
             LOG.log(Level.WARNING, "Properties value for \"libreOfficeTimeout\" was not set. Using a value of \"60000\"");
+        }
+    }
+
+    private static void validateRemoteTrackerPort(final Properties properties) {
+        final String remoteTrackingPort = properties.getProperty(KEY_PROPERTY_REMOTE_TRACKING_PORT);
+        if (remoteTrackingPort == null || remoteTrackingPort.isEmpty() || !remoteTrackingPort.matches("\\d+")) {
+            properties.setProperty(KEY_PROPERTY_REMOTE_TRACKING_PORT, "1099");
+            LOG.log(Level.WARNING, "Properties value for \"remoteTracker.port\" was not set. Using a value of \"1099\"");
         }
     }
 }

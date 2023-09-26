@@ -25,13 +25,11 @@ import com.idrsolutions.microservice.storage.Storage;
 import com.idrsolutions.microservice.utils.ConversionTracker;
 import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
+import com.idrsolutions.microservice.utils.ProcessUtils;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.PdfDecoderServer;
-import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.exception.PdfException;
-import org.jpedal.render.output.ContentOptions;
-import org.jpedal.render.output.IDRViewerOptions;
-import org.jpedal.render.output.OutputModeOptions;
+import org.jpedal.external.RemoteTracker;
 import org.jpedal.settings.BuildVuSettingsValidator;
 
 import javax.json.stream.JsonParsingException;
@@ -40,10 +38,16 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.rmi.AlreadyBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -108,7 +112,7 @@ public class BuildVuServlet extends BaseServlet {
         if (!isPDF) {
             final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
             final long libreOfficeTimeout = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT));
-            LibreOfficeHelper.Result libreOfficeConversionResult = LibreOfficeHelper.convertDocToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout);
+            final ProcessUtils.Result libreOfficeConversionResult = LibreOfficeHelper.convertDocToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout);
             switch (libreOfficeConversionResult) {
                 case TIMEOUT:
                     DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Maximum conversion duration exceeded.");
@@ -162,45 +166,113 @@ public class BuildVuServlet extends BaseServlet {
         DBHandler.getInstance().setState(uuid, "processing");
 
         try {
-            final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
+            final int remoteTrackerPort = Integer.parseInt((String) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_PORT));
+            try {
+                final RemoteTracker tracker = new ConversionTracker(uuid);
+                final RemoteTracker stub = (RemoteTracker) UnicastRemoteObject.exportObject(tracker, remoteTrackerPort);
 
-            final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
+                // Bind the remote object's stub in the registry
+                final Registry registry = (Registry) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_REGISTRY);
+                if (registry != null) {
+                    registry.bind(uuid, stub);
+                }
 
-            final BuildVuConverter converter = new BuildVuConverter(inputPdf, outputDir, conversionParams, outputModeOptions);
+            } catch (final AlreadyBoundException | RemoteException e) {
+                LOG.log(Level.SEVERE, "Failed to create Tracker. Exception ", e);
+                throw new Exception("Failed to create Remote Tracker for conversion");
+            }
+
+            final long startTimeMillis = System.currentTimeMillis();
+            final String servletDirectory = getServletContext().getRealPath("");
+            final String webappDirectory;
+
+            if (servletDirectory != null) {
+                webappDirectory = servletDirectory + File.separator + "WEB-INF/lib/buildvu.jar" + File.pathSeparatorChar + ".";
+            } else {
+                webappDirectory = "WEB-INF/lib/buildvu.jar:.";
+            }
 
             final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
-            converter.setCustomErrorTracker(new ConversionTracker(uuid, maxDuration));
 
-            converter.convert();
+            final ProcessUtils.Result result = convertFile(conversionParams, remoteTrackerPort, uuid, webappDirectory, inputPdf, outputDir, maxDuration);
 
-            if ("1230".equals(DBHandler.getInstance().getStatus(uuid).get("errorCode"))) {
-                final String message = String.format("Conversion %s exceeded max duration of %dms", uuid, maxDuration);
-                LOG.log(Level.INFO, message);
-                return;
+            switch (result) {
+                case SUCCESS:
+                    ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
+                            outputDirStr + "/" + fileNameWithoutExt + ".zip");
+
+                    final String outputPathInDocroot = uuid + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
+
+                    final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
+                    if (!isContentMode) {
+                        DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/" + "index.html");
+                    }
+
+                    DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+
+                    final Storage storage = (Storage) getServletContext().getAttribute("storage");
+
+                    if (storage != null) {
+                        final String remoteUrl = storage.put(new File(outputDirStr + "/" + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", uuid);
+                        DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
+                    }
+
+                    DBHandler.getInstance().setState(uuid, "processed");
+
+                    break;
+                case TIMEOUT:
+                    final String message = String.format("Conversion %s exceeded max duration of %dms", uuid, maxDuration);
+                    LOG.log(Level.INFO, message);
+                    DBHandler.getInstance().setError(uuid, 1230, "Conversion exceeded max duration of " + maxDuration + "ms");
+                    break;
+                case ERROR:
+                    LOG.log(Level.SEVERE, "An error occurred during the conversion");
+                    DBHandler.getInstance().setError(uuid, 1220, "An error occurred during the conversion");
+                    break;
             }
 
-            ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
-                    outputDirStr + "/" + fileNameWithoutExt + ".zip");
-
-            final String outputPathInDocroot = uuid + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
-
-            if (!isContentMode) {
-                DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/index.html");
-            }
-            DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
-
-            final Storage storage = (Storage) getServletContext().getAttribute("storage");
-
-            if (storage != null) {
-                final String remoteUrl = storage.put(new File(outputDirStr + "/" + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", uuid);
-                DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
-            }
-
-            DBHandler.getInstance().setState(uuid, "processed");
         } catch (final Throwable ex) {
             LOG.log(Level.SEVERE, "Exception thrown when converting input", ex);
             DBHandler.getInstance().setError(uuid, 1220, "Exception thrown when converting input: " + ex.getMessage());
         }
+    }
+
+    private ProcessUtils.Result convertFile(final Map<String, String> conversionParams, final int remoteTrackerPort,
+                                            final String uuid, final String webappDirectory, final File inputPdf,
+                                            final File outputDir, final long maxDuration) {
+        final ArrayList<String> commandArgs = new ArrayList<>();
+        commandArgs.add("java");
+
+        final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
+        final int memoryLimit = Integer.parseInt(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_CONVERSION_MEMORY));
+        if (memoryLimit > 0) {
+            commandArgs.add("-Xmx" + memoryLimit + "M");
+        }
+
+
+        if (conversionParams.size() > 0) {
+            final Set<String> keys = conversionParams.keySet();
+            for (final String key : keys) {
+                final String value = conversionParams.get(key);
+                commandArgs.add("-D" + key + "=" + value);
+            }
+        }
+
+
+        //Set settings
+        commandArgs.add("-Dorg.jpedal.remoteTracker.port=" + remoteTrackerPort);
+        commandArgs.add("-Dorg.jpedal.remoteTracker.id=" + uuid);
+
+        //Add jar and input / output
+        commandArgs.add("-cp");
+        commandArgs.add(webappDirectory);
+        commandArgs.add("org.jpedal.examples.BuildVu");
+        commandArgs.add(inputPdf.getAbsolutePath());
+        commandArgs.add(outputDir.getAbsolutePath());
+
+        final String[] commands = commandArgs.toArray(new String[0]);
+
+        return ProcessUtils.runProcess(commands, inputPdf.getParentFile(), uuid, "BuildVu Conversion", maxDuration);
     }
 
     /**
