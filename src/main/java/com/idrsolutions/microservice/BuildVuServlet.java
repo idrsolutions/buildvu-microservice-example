@@ -22,14 +22,12 @@ package com.idrsolutions.microservice;
 
 import com.idrsolutions.microservice.db.DBHandler;
 import com.idrsolutions.microservice.storage.Storage;
-import com.idrsolutions.microservice.utils.ConversionTracker;
 import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
 import com.idrsolutions.microservice.utils.ProcessUtils;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.PdfDecoderServer;
 import org.jpedal.exception.PdfException;
-import org.jpedal.external.RemoteTracker;
 import org.jpedal.settings.BuildVuSettingsValidator;
 
 import javax.json.stream.JsonParsingException;
@@ -38,10 +36,6 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
-import java.rmi.AlreadyBoundException;
-import java.rmi.RemoteException;
-import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -166,22 +160,6 @@ public class BuildVuServlet extends BaseServlet {
         DBHandler.getInstance().setState(uuid, "processing");
 
         try {
-            final int remoteTrackerPort = Integer.parseInt((String) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_PORT));
-            try {
-                final RemoteTracker tracker = new ConversionTracker(uuid);
-                final RemoteTracker stub = (RemoteTracker) UnicastRemoteObject.exportObject(tracker, remoteTrackerPort);
-
-                // Bind the remote object's stub in the registry
-                final Registry registry = (Registry) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_REGISTRY);
-                if (registry != null) {
-                    registry.bind(uuid, stub);
-                }
-
-            } catch (final AlreadyBoundException | RemoteException e) {
-                LOG.log(Level.SEVERE, "Failed to create Tracker. Exception ", e);
-                throw new Exception("Failed to create Remote Tracker for conversion");
-            }
-
             final long startTimeMillis = System.currentTimeMillis();
             final String servletDirectory = getServletContext().getRealPath("");
             final String webappDirectory;
@@ -194,7 +172,7 @@ public class BuildVuServlet extends BaseServlet {
 
             final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
 
-            final ProcessUtils.Result result = convertFile(conversionParams, remoteTrackerPort, uuid, webappDirectory, inputPdf, outputDir, maxDuration);
+            final ProcessUtils.Result result = convertFile(conversionParams, uuid, webappDirectory, inputPdf, outputDir, maxDuration);
 
             switch (result) {
                 case SUCCESS:
@@ -237,9 +215,8 @@ public class BuildVuServlet extends BaseServlet {
         }
     }
 
-    private ProcessUtils.Result convertFile(final Map<String, String> conversionParams, final int remoteTrackerPort,
-                                            final String uuid, final String webappDirectory, final File inputPdf,
-                                            final File outputDir, final long maxDuration) {
+    private ProcessUtils.Result convertFile(final Map<String, String> conversionParams, final String uuid, final String webappDirectory,
+                                            final File inputPdf, final File outputDir, final long maxDuration) {
         final ArrayList<String> commandArgs = new ArrayList<>();
         commandArgs.add("java");
 
@@ -258,10 +235,11 @@ public class BuildVuServlet extends BaseServlet {
             }
         }
 
+        final int remoteTrackerPort = Integer.parseInt((String) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_PORT));
 
         //Set settings
-        commandArgs.add("-Dorg.jpedal.remoteTracker.port=" + remoteTrackerPort);
-        commandArgs.add("-Dorg.jpedal.remoteTracker.id=" + uuid);
+        commandArgs.add("-Dcom.idrsolutions.remoteTracker.port=" + remoteTrackerPort);
+        commandArgs.add("-Dcom.idrsolutions.remoteTracker.uuid=" + uuid);
 
         //Add jar and input / output
         commandArgs.add("-cp");
