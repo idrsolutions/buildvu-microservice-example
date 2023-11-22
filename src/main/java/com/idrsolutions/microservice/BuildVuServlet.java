@@ -57,14 +57,6 @@ public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
 
-    private static final String[] validTextModeOptions = {
-            "svg_realtext",
-            "svg_shapetext_selectable",
-            "svg_shapetext_nonselectable",
-            "image_realtext",
-            "image_shapetext_selectable",
-            "image_shapetext_nonselectable"};
-
     /**
      * Converts given pdf file or office document to html or svg using BuildVu-HTML
      * and BuildVu-SVG respectively.
@@ -81,8 +73,7 @@ public class BuildVuServlet extends BaseServlet {
      * @param contextUrl The context that this servlet is running in
      */
     @Override
-    protected void convert(String uuid,
-                           File inputFile, File outputDir, String contextUrl) {
+    protected void convert(final String uuid, final File inputFile, final File outputDir, final String contextUrl) {
 
         final Map<String, String> conversionParams;
         try {
@@ -94,8 +85,8 @@ public class BuildVuServlet extends BaseServlet {
         }
 
         final String fileName = inputFile.getName();
-        final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
-        final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf("."));
+        final String ext = fileName.substring(fileName.lastIndexOf('.') + 1);
+        final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
         // To avoid repeated calls to getParent() and getAbsolutePath()
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
@@ -160,14 +151,13 @@ public class BuildVuServlet extends BaseServlet {
         DBHandler.getInstance().setState(uuid, "processing");
 
         try {
-            final long startTimeMillis = System.currentTimeMillis();
             final String servletDirectory = getServletContext().getRealPath("");
             final String webappDirectory;
 
             if (servletDirectory != null) {
-                webappDirectory = servletDirectory + File.separator + "WEB-INF/lib/buildvu.jar" + File.pathSeparatorChar + ".";
+                webappDirectory = servletDirectory + File.separator + "WEB-INF/lib/buildvu.jar" + File.pathSeparatorChar + '.';
             } else {
-                webappDirectory = "WEB-INF/lib/buildvu.jar:.";
+                webappDirectory = "WEB-INF/lib/buildvu.jar" + File.pathSeparatorChar + '.';
             }
 
             final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
@@ -176,14 +166,14 @@ public class BuildVuServlet extends BaseServlet {
 
             switch (result) {
                 case SUCCESS:
-                    ZipHelper.zipFolder(outputDirStr + "/" + fileNameWithoutExt,
-                            outputDirStr + "/" + fileNameWithoutExt + ".zip");
+                    ZipHelper.zipFolder(outputDirStr + '/' + fileNameWithoutExt,
+                            outputDirStr + '/' + fileNameWithoutExt + ".zip");
 
-                    final String outputPathInDocroot = uuid + "/" + DefaultFileServlet.encodeURI(fileNameWithoutExt);
+                    final String outputPathInDocroot = uuid + '/' + DefaultFileServlet.encodeURI(fileNameWithoutExt);
 
                     final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
                     if (!isContentMode) {
-                        DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + "/" + "index.html");
+                        DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + '/' + "index.html");
                     }
 
                     DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
@@ -191,7 +181,7 @@ public class BuildVuServlet extends BaseServlet {
                     final Storage storage = (Storage) getServletContext().getAttribute("storage");
 
                     if (storage != null) {
-                        final String remoteUrl = storage.put(new File(outputDirStr + "/" + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", uuid);
+                        final String remoteUrl = storage.put(new File(outputDirStr + '/' + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", uuid);
                         DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
                     }
 
@@ -223,15 +213,15 @@ public class BuildVuServlet extends BaseServlet {
         final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
         final int memoryLimit = Integer.parseInt(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_CONVERSION_MEMORY));
         if (memoryLimit > 0) {
-            commandArgs.add("-Xmx" + memoryLimit + "M");
+            commandArgs.add("-Xmx" + memoryLimit + 'M');
         }
 
 
-        if (conversionParams.size() > 0) {
+        if (!conversionParams.isEmpty()) {
             final Set<String> keys = conversionParams.keySet();
             for (final String key : keys) {
                 final String value = conversionParams.get(key);
-                commandArgs.add("-D" + key + "=" + value);
+                commandArgs.add("-D" + key + '=' + value);
             }
         }
 
@@ -256,7 +246,7 @@ public class BuildVuServlet extends BaseServlet {
     /**
      * Validates the settings parameter passed to the request. It will parse the conversionParams,
      * validate them, and then set the params in the Individual object.
-     *
+     * <p>
      * If settings are not parsed or validated, doError will be called.
      *
      * @param request the request for this conversion
@@ -271,7 +261,7 @@ public class BuildVuServlet extends BaseServlet {
         final Map<String, String> settings;
         try {
             settings = parseSettings(request.getParameter("settings"));
-        } catch (JsonParsingException exception) {
+        } catch (final JsonParsingException exception) {
             doError(request, response, "Error encountered when parsing settings JSON <" + exception.getMessage() + '>', 400);
             return false;
         }
