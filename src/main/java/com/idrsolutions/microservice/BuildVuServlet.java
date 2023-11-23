@@ -152,17 +152,17 @@ public class BuildVuServlet extends BaseServlet {
 
         try {
             final String servletDirectory = getServletContext().getRealPath("");
-            final String webappDirectory;
+            final String jarPath;
 
             if (servletDirectory != null) {
-                webappDirectory = servletDirectory + File.separator + "WEB-INF/lib/buildvu.jar" + File.pathSeparatorChar + '.';
+                jarPath = servletDirectory + File.separator + "WEB-INF/lib/buildvu.jar";
             } else {
-                webappDirectory = "WEB-INF/lib/buildvu.jar" + File.pathSeparatorChar + '.';
+                jarPath = "WEB-INF/lib/buildvu.jar";
             }
 
             final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
 
-            final ProcessUtils.Result result = convertFile(conversionParams, uuid, webappDirectory, inputPdf, outputDir, maxDuration);
+            final ProcessUtils.Result result = convertFile(conversionParams, uuid, jarPath, inputPdf, outputDir, maxDuration);
 
             switch (result) {
                 case SUCCESS:
@@ -205,7 +205,7 @@ public class BuildVuServlet extends BaseServlet {
         }
     }
 
-    private ProcessUtils.Result convertFile(final Map<String, String> conversionParams, final String uuid, final String webappDirectory,
+    private ProcessUtils.Result convertFile(final Map<String, String> conversionParams, final String uuid, final String jarPath,
                                             final File inputPdf, final File outputDir, final long maxDuration) {
         final ArrayList<String> commandArgs = new ArrayList<>();
         commandArgs.add("java");
@@ -232,9 +232,8 @@ public class BuildVuServlet extends BaseServlet {
         commandArgs.add("-Dcom.idrsolutions.remoteTracker.uuid=" + uuid);
 
         //Add jar and input / output
-        commandArgs.add("-cp");
-        commandArgs.add(webappDirectory);
-        commandArgs.add("org.jpedal.examples.BuildVu");
+        commandArgs.add("-jar");
+        commandArgs.add(jarPath);
         commandArgs.add(inputPdf.getAbsolutePath());
         commandArgs.add(outputDir.getAbsolutePath());
 
