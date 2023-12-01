@@ -60,7 +60,7 @@ For specific languages, see our tutorials on how to [run BuildVu from other lang
 
 Found a bug, or have a suggestion / improvement? Let us know through the Issues page.
 
-Got questions? You can contact us [here](https://idrsolutions.atlassian.net/servicedesk/customer/portal/8).
+Got questions? You can contact us [here](https://idrsolutions.my.site.com/s/request).
 
 -----
 
