@@ -85,6 +85,12 @@ public class BuildVuServlet extends BaseServlet {
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf('.') + 1);
         final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+
+        if (fileNameWithoutExt.isEmpty() || ".".equals(fileNameWithoutExt) || "..".equals(fileNameWithoutExt)) {
+            DBHandler.getInstance().setError(uuid, 1090, "Disallowed filename");
+            return;
+        }
+
         // To avoid repeated calls to getParent() and getAbsolutePath()
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
