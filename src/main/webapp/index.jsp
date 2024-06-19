@@ -3,8 +3,6 @@
 
  Project Info: https://github.com/idrsolutions/buildvu-microservice-example
 
- Copyright 2022 IDRsolutions
-
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at

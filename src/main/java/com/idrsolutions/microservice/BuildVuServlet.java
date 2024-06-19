@@ -3,8 +3,6 @@
  *
  * Project Info: https://github.com/idrsolutions/buildvu-microservice-example
  *
- * Copyright 2022 IDRsolutions
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -22,16 +20,12 @@ package com.idrsolutions.microservice;
 
 import com.idrsolutions.microservice.db.DBHandler;
 import com.idrsolutions.microservice.storage.Storage;
-import com.idrsolutions.microservice.utils.ConversionTracker;
 import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
+import com.idrsolutions.microservice.utils.ProcessUtils;
 import com.idrsolutions.microservice.utils.ZipHelper;
 import org.jpedal.PdfDecoderServer;
-import org.jpedal.examples.BuildVuConverter;
 import org.jpedal.exception.PdfException;
-import org.jpedal.render.output.ContentOptions;
-import org.jpedal.render.output.IDRViewerOptions;
-import org.jpedal.render.output.OutputModeOptions;
 import org.jpedal.settings.BuildVuSettingsValidator;
 
 import javax.json.stream.JsonParsingException;
@@ -41,9 +35,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -58,14 +54,6 @@ import java.util.logging.Logger;
 public class BuildVuServlet extends BaseServlet {
 
     private static final Logger LOG = Logger.getLogger(BuildVuServlet.class.getName());
-
-    private static final String[] validTextModeOptions = {
-            "svg_realtext",
-            "svg_shapetext_selectable",
-            "svg_shapetext_nonselectable",
-            "image_realtext",
-            "image_shapetext_selectable",
-            "image_shapetext_nonselectable"};
 
     /**
      * Converts given pdf file or office document to html or svg using BuildVu-HTML
@@ -83,8 +71,7 @@ public class BuildVuServlet extends BaseServlet {
      * @param contextUrl The context that this servlet is running in
      */
     @Override
-    protected void convert(String uuid,
-                           File inputFile, File outputDir, String contextUrl) {
+    protected void convert(final String uuid, final File inputFile, final File outputDir, final String contextUrl) {
 
         final Map<String, String> conversionParams;
         try {
@@ -96,7 +83,14 @@ public class BuildVuServlet extends BaseServlet {
         }
 
         final String fileName = inputFile.getName();
-        final String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
+        final String ext = fileName.substring(fileName.lastIndexOf('.') + 1);
+        final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+
+        if (fileNameWithoutExt.isEmpty() || ".".equals(fileNameWithoutExt) || "..".equals(fileNameWithoutExt)) {
+            DBHandler.getInstance().setError(uuid, 1090, "Disallowed filename");
+            return;
+        }
+
         // To avoid repeated calls to getParent() and getAbsolutePath()
         final String inputDir = inputFile.getParent();
         final String outputDirStr = outputDir.getAbsolutePath();
@@ -107,7 +101,7 @@ public class BuildVuServlet extends BaseServlet {
         if (!isPDF) {
             final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
             final long libreOfficeTimeout = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT));
-            LibreOfficeHelper.Result libreOfficeConversionResult = LibreOfficeHelper.convertDocToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout);
+            final ProcessUtils.Result libreOfficeConversionResult = LibreOfficeHelper.convertDocToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout);
             switch (libreOfficeConversionResult) {
                 case TIMEOUT:
                     DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Maximum conversion duration exceeded.");
@@ -122,6 +116,7 @@ public class BuildVuServlet extends BaseServlet {
                         DBHandler.getInstance().setError(uuid, 1080, "Error processing PDF");
                         return;
                     }
+                    break;
                 default:
                     LOG.log(Level.SEVERE, "Unexpected error has occurred converting office document: " + libreOfficeConversionResult.getCode() + " using LibreOffice");
                     DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Failed to convert office document to PDF");
@@ -161,53 +156,105 @@ public class BuildVuServlet extends BaseServlet {
         DBHandler.getInstance().setState(uuid, "processing");
 
         try {
-            final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
+            final String servletDirectory = getServletContext().getRealPath("");
+            final String jarPath;
 
-            final OutputModeOptions outputModeOptions = isContentMode ? new ContentOptions(conversionParams) : new IDRViewerOptions(conversionParams);
+            if (servletDirectory != null) {
+                jarPath = servletDirectory + File.separator + "WEB-INF/lib/buildvu.jar";
+            } else {
+                jarPath = "WEB-INF/lib/buildvu.jar";
+            }
+
+            final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
 
             final String originalFileName = DBHandler.getInstance().getCustomData(uuid).get("originalFileName");
             conversionParams.put("org.jpedal.pdf2html.originalFileName", originalFileName);
             conversionParams.put("org.jpedal.pdf2html.omitNameDir", "true");
 
-            final BuildVuConverter converter = new BuildVuConverter(inputPdf, conversionDir, conversionParams, outputModeOptions);
+            final ProcessUtils.Result result = convertFile(conversionParams, uuid, jarPath, inputPdf, outputDir, maxDuration);
 
-            final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
-            converter.setCustomErrorTracker(new ConversionTracker(uuid, maxDuration));
+            switch (result) {
+                case SUCCESS:
+                    ZipHelper.zipFolder(outputDirStr + '/' + uuid,
+                            outputDirStr + '/' + uuid + ".zip");
 
-            converter.convert();
+                    final String outputPathInDocroot = uuid + '/' + DefaultFileServlet.encodeURI(fileNameWithoutExt);
 
-            if ("1230".equals(DBHandler.getInstance().getStatus(uuid).get("errorCode"))) {
-                final String message = String.format("Conversion %s exceeded max duration of %dms", uuid, maxDuration);
-                LOG.log(Level.INFO, message);
-                return;
+                    final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
+                    if (!isContentMode) {
+                        DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + uuid + "/index.html");
+                    }
+
+                    DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + uuid + ".zip");
+
+                    final Storage storage = (Storage) getServletContext().getAttribute("storage");
+
+                    if (storage != null) {
+                        final String remoteUrl = storage.put(new File(outputDirStr + '/' + uuid + ".zip"), uuid + ".zip", uuid);
+                        DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
+                    }
+
+                    DBHandler.getInstance().setState(uuid, "processed");
+
+                    break;
+                case TIMEOUT:
+                    final String message = String.format("Conversion %s exceeded max duration of %dms", uuid, maxDuration);
+                    LOG.log(Level.INFO, message);
+                    DBHandler.getInstance().setError(uuid, 1230, "Conversion exceeded max duration of " + maxDuration + "ms");
+                    break;
+                case ERROR:
+                    LOG.log(Level.SEVERE, "An error occurred during the conversion");
+                    DBHandler.getInstance().setError(uuid, 1220, "An error occurred during the conversion");
+                    break;
             }
 
-            ZipHelper.zipFolder(outputDirStr + "/" + uuid,
-                    outputDirStr + "/" + uuid + ".zip");
-
-            if (!isContentMode) {
-                DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + uuid + "/index.html");
-            }
-            DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + uuid + ".zip");
-
-            final Storage storage = (Storage) getServletContext().getAttribute("storage");
-
-            if (storage != null) {
-                final String remoteUrl = storage.put(new File(outputDirStr + "/" + uuid + ".zip"), uuid + ".zip", uuid);
-                DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
-            }
-
-            DBHandler.getInstance().setState(uuid, "processed");
         } catch (final Throwable ex) {
             LOG.log(Level.SEVERE, "Exception thrown when converting input", ex);
-            DBHandler.getInstance().setError(uuid, 1220, "Exception thrown when converting input" + ex.getMessage());
+            DBHandler.getInstance().setError(uuid, 1220, "Exception thrown when converting input: " + ex.getMessage());
         }
+    }
+
+    private ProcessUtils.Result convertFile(final Map<String, String> conversionParams, final String uuid, final String jarPath,
+                                            final File inputPdf, final File outputDir, final long maxDuration) {
+        final ArrayList<String> commandArgs = new ArrayList<>();
+        commandArgs.add("java");
+
+        final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
+        final int memoryLimit = Integer.parseInt(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_CONVERSION_MEMORY));
+        if (memoryLimit > 0) {
+            commandArgs.add("-Xmx" + memoryLimit + 'M');
+        }
+
+
+        if (!conversionParams.isEmpty()) {
+            final Set<String> keys = conversionParams.keySet();
+            for (final String key : keys) {
+                final String value = conversionParams.get(key);
+                commandArgs.add("-D" + key + '=' + value);
+            }
+        }
+
+        final int remoteTrackerPort = Integer.parseInt((String) properties.get(BaseServletContextListener.KEY_PROPERTY_REMOTE_TRACKING_PORT));
+
+        //Set settings
+        commandArgs.add("-Dcom.idrsolutions.remoteTracker.port=" + remoteTrackerPort);
+        commandArgs.add("-Dcom.idrsolutions.remoteTracker.uuid=" + uuid);
+
+        //Add jar and input / output
+        commandArgs.add("-jar");
+        commandArgs.add(jarPath);
+        commandArgs.add(inputPdf.getAbsolutePath());
+        commandArgs.add(outputDir.getAbsolutePath());
+
+        final String[] commands = commandArgs.toArray(new String[0]);
+
+        return ProcessUtils.runProcess(commands, inputPdf.getParentFile(), uuid, "BuildVu Conversion", maxDuration);
     }
 
     /**
      * Validates the settings parameter passed to the request. It will parse the conversionParams,
      * validate them, and then set the params in the Individual object.
-     *
+     * <p>
      * If settings are not parsed or validated, doError will be called.
      *
      * @param request the request for this conversion
@@ -222,7 +269,7 @@ public class BuildVuServlet extends BaseServlet {
         final Map<String, String> settings;
         try {
             settings = parseSettings(request.getParameter("settings"));
-        } catch (JsonParsingException exception) {
+        } catch (final JsonParsingException exception) {
             doError(request, response, "Error encountered when parsing settings JSON <" + exception.getMessage() + '>', 400);
             return false;
         }
