@@ -171,7 +171,7 @@ public class BuildVuServlet extends BaseServlet {
             switch (result) {
                 case SUCCESS:
                     final File outputZip = new File(outputDir.getParentFile(), uuid + ".zip");
-                    ZipHelper.zipFolder(outputDir, outputZip);
+                    ZipHelper.zipFolder(outputDir, outputZip, false);
 
                     final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
                     if (!isContentMode) {
