@@ -20,7 +20,6 @@ package com.idrsolutions.microservice;
 
 import com.idrsolutions.microservice.db.DBHandler;
 import com.idrsolutions.microservice.storage.Storage;
-import com.idrsolutions.microservice.utils.DefaultFileServlet;
 import com.idrsolutions.microservice.utils.LibreOfficeHelper;
 import com.idrsolutions.microservice.utils.ProcessUtils;
 import com.idrsolutions.microservice.utils.ZipHelper;
@@ -67,11 +66,10 @@ public class BuildVuServlet extends BaseServlet {
      *
      * @param uuid The uuid of the conversion
      * @param inputFile The input file
-     * @param outputDir The output directory of the converted file
      * @param contextUrl The context that this servlet is running in
      */
     @Override
-    protected void convert(final String uuid, final File inputFile, final File outputDir, final String contextUrl) {
+    protected void convert(final String uuid, final File inputFile, final String contextUrl) {
 
         final Map<String, String> conversionParams;
         try {
@@ -84,19 +82,12 @@ public class BuildVuServlet extends BaseServlet {
 
         final String fileName = inputFile.getName();
         final String ext = fileName.substring(fileName.lastIndexOf('.') + 1);
-        final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
 
-        if (fileNameWithoutExt.isEmpty() || ".".equals(fileNameWithoutExt) || "..".equals(fileNameWithoutExt)) {
-            DBHandler.getInstance().setError(uuid, 1090, "Disallowed filename");
-            return;
-        }
-
-        // To avoid repeated calls to getParent() and getAbsolutePath()
-        final String inputDir = inputFile.getParent();
-        final String outputDirStr = outputDir.getAbsolutePath();
         final Properties properties = (Properties) getServletContext().getAttribute(BaseServletContextListener.KEY_PROPERTIES);
 
         final File inputPdf;
+        final File outputDir = new File(getOutputPath(), uuid);
+
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
             final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
@@ -110,7 +101,7 @@ public class BuildVuServlet extends BaseServlet {
                     DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Internal error processing file");
                     return;
                 case SUCCESS:
-                    inputPdf = new File(inputDir, fileNameWithoutExt + ".pdf");
+                    inputPdf = new File(inputFile.getParentFile(), uuid + ".pdf");
                     if (!inputPdf.exists()) {
                         LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
                         DBHandler.getInstance().setError(uuid, 1080, "Error processing PDF");
@@ -123,11 +114,16 @@ public class BuildVuServlet extends BaseServlet {
                     return;
             }
         } else {
-            inputPdf = new File(inputDir, fileName);
+            inputPdf = inputFile;
         }
 
         //Makes the directory for the output file
-        new File(outputDirStr, fileNameWithoutExt).mkdirs();
+        if (!outputDir.mkdirs()) {
+            LOG.log(Level.SEVERE, "Failed to create output directory: " + outputDir.getAbsolutePath());
+            DBHandler.getInstance().setError(uuid, 500, "File system failure");
+            return;
+        }
+
         final int pageCount;
         try {
             final PdfDecoderServer decoder = new PdfDecoderServer(false);
@@ -166,26 +162,28 @@ public class BuildVuServlet extends BaseServlet {
 
             final long maxDuration = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_MAX_CONVERSION_DURATION));
 
+            final String originalFileName = DBHandler.getInstance().getCustomData(uuid).get("originalFileName");
+            conversionParams.put("org.jpedal.pdf2html.originalFileName", originalFileName);
+            conversionParams.put("org.jpedal.pdf2html.omitNameDir", "true");
+
             final ProcessUtils.Result result = convertFile(conversionParams, uuid, jarPath, inputPdf, outputDir, maxDuration);
 
             switch (result) {
                 case SUCCESS:
-                    ZipHelper.zipFolder(outputDirStr + '/' + fileNameWithoutExt,
-                            outputDirStr + '/' + fileNameWithoutExt + ".zip");
-
-                    final String outputPathInDocroot = uuid + '/' + DefaultFileServlet.encodeURI(fileNameWithoutExt);
+                    final File outputZip = new File(outputDir.getParentFile(), uuid + ".zip");
+                    ZipHelper.zipFolder(outputDir, outputZip, false);
 
                     final boolean isContentMode = "content".equalsIgnoreCase(conversionParams.remove("org.jpedal.pdf2html.viewMode"));
                     if (!isContentMode) {
-                        DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + outputPathInDocroot + '/' + "index.html");
+                        DBHandler.getInstance().setCustomValue(uuid, "previewUrl", contextUrl + "/output/" + uuid + "/index.html");
                     }
 
-                    DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + outputPathInDocroot + ".zip");
+                    DBHandler.getInstance().setCustomValue(uuid, "downloadUrl", contextUrl + "/output/" + uuid + ".zip");
 
                     final Storage storage = (Storage) getServletContext().getAttribute("storage");
 
                     if (storage != null) {
-                        final String remoteUrl = storage.put(new File(outputDirStr + '/' + fileNameWithoutExt + ".zip"), fileNameWithoutExt + ".zip", uuid);
+                        final String remoteUrl = storage.put(outputZip, uuid + ".zip", uuid);
                         DBHandler.getInstance().setCustomValue(uuid, "remoteUrl", remoteUrl);
                     }
 
