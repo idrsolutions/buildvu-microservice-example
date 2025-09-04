@@ -88,11 +88,20 @@ public class BuildVuServlet extends BaseServlet {
         final File inputPdf;
         final File outputDir = new File(getOutputPath(), uuid);
 
+        //Makes the directory for the output file
+        if (!outputDir.mkdirs()) {
+            LOG.log(Level.SEVERE, "Failed to create output directory: " + outputDir.getAbsolutePath());
+            DBHandler.getInstance().setError(uuid, 500, "File system failure");
+            return;
+        }
+
         final boolean isPDF = ext.toLowerCase().endsWith("pdf");
         if (!isPDF) {
+            final boolean includeOfficePdf = "true".equalsIgnoreCase(properties.getProperty(BuildVuServletContextListener.KEY_PROPERTY_INCLUDE_OFFICE_PDF));
+            final File officeOutputDir = includeOfficePdf ? outputDir : inputFile.getParentFile();
             final String libreOfficePath = properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE);
             final long libreOfficeTimeout = Long.parseLong(properties.getProperty(BaseServletContextListener.KEY_PROPERTY_LIBRE_OFFICE_TIMEOUT));
-            final ProcessUtils.Result libreOfficeConversionResult = LibreOfficeHelper.convertDocToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout);
+            final ProcessUtils.Result libreOfficeConversionResult = LibreOfficeHelper.convertDocToPDF(libreOfficePath, inputFile, uuid, libreOfficeTimeout, officeOutputDir);
             switch (libreOfficeConversionResult) {
                 case TIMEOUT:
                     DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Maximum conversion duration exceeded.");
@@ -101,7 +110,7 @@ public class BuildVuServlet extends BaseServlet {
                     DBHandler.getInstance().setError(uuid, libreOfficeConversionResult.getCode(), "Internal error processing file");
                     return;
                 case SUCCESS:
-                    inputPdf = new File(inputFile.getParentFile(), uuid + ".pdf");
+                    inputPdf = new File(officeOutputDir, uuid + ".pdf");
                     if (!inputPdf.exists()) {
                         LOG.log(Level.SEVERE, "LibreOffice error found while converting to PDF: " + inputPdf.getAbsolutePath());
                         DBHandler.getInstance().setError(uuid, 1080, "Error processing PDF");
@@ -115,13 +124,6 @@ public class BuildVuServlet extends BaseServlet {
             }
         } else {
             inputPdf = inputFile;
-        }
-
-        //Makes the directory for the output file
-        if (!outputDir.mkdirs()) {
-            LOG.log(Level.SEVERE, "Failed to create output directory: " + outputDir.getAbsolutePath());
-            DBHandler.getInstance().setError(uuid, 500, "File system failure");
-            return;
         }
 
         final int pageCount;
