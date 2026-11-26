@@ -15,14 +15,14 @@ IDRsolutions' BuildVu Microservice Example is an open source project that allows
 
 ### Trial Version: ###
 
-If you do not have a full verison of BuildVu you can get the trial version from [here](https://www.idrsolutions.com/buildvu/trial-download/).
+If you do not have a full verison of BuildVu you can get the trial version from [here](https://www.idrsolutions.com/buildvu/your-trial).
 
 ### Build: ###
 
 Clone a copy of the buildvu-microservice-example git repo:
 
 ```
-git clone git://github.com/idrsolutions/buildvu-microservice-example
+git clone git@github.com:idrsolutions/buildvu-microservice-example.git
 ```
 
 Add the BuildVu jar to the project by copying it into the /lib directory. Make sure that it is named "buildvu.jar"
@@ -38,7 +38,7 @@ This will generate the buildvu.war file inside the /target directory.
 
 See our [application server tutorials](https://docs.idrsolutions.com/buildvu/app-server-deployment/) for instructions on deployment.
 
-See our [cloud platform tutorials](https://docs.idrsolutions.com/buildvu/docker-deployment/) for instructions on cloud deployment.
+See our [cloud platform tutorials](https://www.idrsolutions.com/docs/buildvu/host-docker-web-service/) for instructions on cloud deployment.
 
 ### docker-compose deployment: ###
 
